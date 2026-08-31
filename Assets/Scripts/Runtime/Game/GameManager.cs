@@ -51,6 +51,7 @@ namespace Cannon.Game
 
         private Camera _cam;
         private LineRenderer _line;
+        private LineRenderer _aimLine;
         private Transform _cannon;
         private Vector3 _muzzle;
 
@@ -298,11 +299,26 @@ namespace Cannon.Game
             }
         }
 
+        private void UpdateAimIndicator(Vector3 aimDir)
+        {
+            Vector3 dir = aimDir.normalized;
+            if (_cannon != null)
+                _cannon.rotation = Quaternion.FromToRotation(Vector3.up, dir);
+            if (_aimLine != null)
+            {
+                _aimLine.positionCount = 2;
+                _aimLine.SetPosition(0, _muzzle + Vector3.back * 0.1f);
+                _aimLine.SetPosition(1, _muzzle + dir * 2.6f + Vector3.back * 0.1f);
+            }
+        }
+
         private void HandleAimAndCharge()
         {
             Vector3 aimDir = (MouseWorld() - _muzzle);
             aimDir.z = 0f;
             if (aimDir.sqrMagnitude < 0.001f) aimDir = Vector3.right;
+
+            UpdateAimIndicator(aimDir);
 
             if (Input.GetMouseButton(0))
             {
@@ -375,6 +391,7 @@ namespace Cannon.Game
             _holdTime = 0f;
             _state = GameState.Fired;
             if (_line != null) _line.positionCount = 0;
+            if (_aimLine != null) _aimLine.positionCount = 0;
 
             var shot = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             shot.name = "Shot";
@@ -474,6 +491,13 @@ namespace Cannon.Game
             _line.material = MaterialFactory.Unlit(Color.white);
             _line.startColor = _line.endColor = new Color(1f, 1f, 1f, 0.5f);
             _line.positionCount = 0;
+
+            var aimGo = new GameObject("AimLine");
+            _aimLine = aimGo.AddComponent<LineRenderer>();
+            _aimLine.widthMultiplier = 0.18f;
+            _aimLine.material = MaterialFactory.Unlit(new Color(1f, 0.85f, 0.2f));
+            _aimLine.startColor = _aimLine.endColor = new Color(1f, 0.85f, 0.2f);
+            _aimLine.positionCount = 0;
         }
 
         private static void Paint(GameObject go, Color color)
