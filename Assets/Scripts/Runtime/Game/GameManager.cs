@@ -312,6 +312,13 @@ namespace Cannon.Game
                 _zoom = Mathf.Clamp(_zoom - scroll * 2f, ZoomMin, ZoomMax);
             if (_cam != null) _cam.orthographicSize = _zoom;
 
+            // Hotkeys: R restarts the level, Esc returns to the menu.
+            if (_state != GameState.Menu)
+            {
+                if (Input.GetKeyDown(KeyCode.R)) { LoadLevel(_levelIndex); return; }
+                if (Input.GetKeyDown(KeyCode.Escape)) { ToMenu(); return; }
+            }
+
             if (_state == GameState.Aiming || _state == GameState.Charging)
             {
                 _levelTime += Time.deltaTime;
