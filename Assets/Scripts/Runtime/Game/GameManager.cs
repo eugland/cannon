@@ -52,7 +52,7 @@ namespace Cannon.Game
         private OrbitalProjectile _activeShot;
         private float _resolveTimer;
         private float _levelTime;
-        private const float LevelTimeLimit = 120f;
+        private const float LevelTimeLimit = 180f;
 
         private LevelData[] _levels;
 
@@ -105,7 +105,7 @@ namespace Cannon.Game
                 new LevelData
                 {
                     PlanetRadius = 5f, PlanetMass = 48f, FieldRadius = 52f,
-                    PigAngles = new[] { 110f, 140f, 170f }, ShieldsPerPig = 2
+                    PigAngles = new[] { 120f, 150f }, ShieldsPerPig = 3
                 }
             };
         }
@@ -318,7 +318,8 @@ namespace Cannon.Game
             var proj = shot.AddComponent<OrbitalProjectile>();
             proj.G = 1f; proj.MaxSpeed = 45f; proj.MaxLifetime = 10f;
             var hit = shot.AddComponent<ProjectileCollision>();
-            hit.BurstRadius = 3.2f;
+            hit.BurstRadius = 3.8f;
+            hit.ProximityRadius = 3.5f;
             proj.Launch(ChargeModel.LaunchVelocity(aimDir, hold, Charge));
             proj.Ended += OnShotEnded;
 

@@ -18,7 +18,7 @@ namespace Cannon.Game
         public float DamageScale = 1.5f;
         public float BounceDamping = 0.75f;
         public int MaxBounces = 6;
-        public float ProximityRadius = 2.2f;
+        public float ProximityRadius = 3.5f;
 
         private OrbitalProjectile _proj;
         private int _bounces;
@@ -86,11 +86,12 @@ namespace Cannon.Game
 
                 var rb = col.attachedRigidbody;
                 if (rb != null && !rb.isKinematic)
-                    rb.AddExplosionForce(speed * ForceScale, point, BurstRadius, 0.3f, ForceMode.Impulse);
+                    rb.AddExplosionForce(Mathf.Max(speed, 4f) * ForceScale, point, BurstRadius, 0.3f, ForceMode.Impulse);
 
+                // Any pig caught in the blast radius is destroyed (Angry-Birds-Space style).
                 var pig = col.GetComponent<Pig>();
                 if (pig != null)
-                    pig.ApplyImpact(speed * DamageScale * falloff);
+                    pig.Kill();
             }
         }
     }
