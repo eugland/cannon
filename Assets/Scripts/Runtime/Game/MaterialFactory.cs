@@ -12,9 +12,19 @@ namespace Cannon.Game
     {
         private static Material _litBase;
         private static Material _unlitBase;
+        private static Material _spriteBase;
 
         public static Material Lit(Color color) => Colored(GetLit(), color, lit: true);
         public static Material Unlit(Color color) => Colored(GetUnlit(), color, lit: false);
+
+        /// <summary>Alpha-blended material (Sprites/Default) for translucent effects like nebula.</summary>
+        public static Material Sprite(Color color)
+        {
+            if (_spriteBase == null) _spriteBase = Resources.Load<Material>("SpriteBase");
+            Material m = _spriteBase != null ? new Material(_spriteBase) : new Material(Fallback(false));
+            m.color = color;
+            return m;
+        }
 
         private static Material GetLit()
         {

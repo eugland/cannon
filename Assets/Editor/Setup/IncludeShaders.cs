@@ -51,6 +51,7 @@ namespace Cannon.EditorTools
 
             CreateMat("LitWhite", "Universal Render Pipeline/Lit");
             CreateMat("UnlitWhite", "Universal Render Pipeline/Unlit");
+            CreateMat("SpriteBase", "Sprites/Default"); // alpha-blended, for translucent nebula
         }
 
         private static void CreateMat(string name, string shaderName)

@@ -93,6 +93,7 @@ namespace Cannon.Game
             _cam = Camera.main;
             SetupCameraAndLine();
 
+            new GameObject("Nebula").AddComponent<Nebula>();
             var starfield = new GameObject("Starfield").AddComponent<Starfield>();
 
             _audio = gameObject.AddComponent<AudioSource>();
