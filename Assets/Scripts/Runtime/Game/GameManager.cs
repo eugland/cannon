@@ -187,6 +187,16 @@ namespace Cannon.Game
 
         private static readonly Vector3 PlanetCenter = Vector3.zero;
 
+        private static readonly Color[] PlanetHues =
+        {
+            new Color(0.62f, 0.68f, 0.72f), // icy teal-grey
+            new Color(0.70f, 0.62f, 0.52f), // sandy tan
+            new Color(0.55f, 0.65f, 0.72f), // slate blue
+            new Color(0.68f, 0.60f, 0.68f), // dusty mauve
+            new Color(0.58f, 0.70f, 0.62f), // sage green
+            new Color(0.74f, 0.66f, 0.55f), // warm clay
+        };
+
         /// <summary>True if a point is inside a lethal body's kill radius (used by the aim solver).</summary>
         private static bool EntersLethalBody(Vector3 p)
         {
@@ -218,7 +228,7 @@ namespace Cannon.Game
             planet.name = "Planet";
             planet.transform.position = PlanetCenter;
             planet.transform.localScale = Vector3.one * (r * 2f);
-            Paint(planet, new Color(0.62f, 0.68f, 0.72f)); // soft icy-comet grey-teal
+            Paint(planet, PlanetHues[index % PlanetHues.Length]); // varied comfortable hue per level
             var body = planet.AddComponent<GravityBody>();
             body.Kind = BodyKind.Planet; body.Mass = lvl.PlanetMass;
             body.Radius = r;
