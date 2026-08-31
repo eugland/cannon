@@ -75,6 +75,9 @@ namespace Cannon.Game
 
             _cam = Camera.main;
             SetupCameraAndLine();
+
+            var starfield = new GameObject("Starfield").AddComponent<Starfield>();
+
             _levels = BuildLevels();
             LoadLevel(0);
         }
