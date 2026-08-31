@@ -622,7 +622,21 @@ namespace Cannon.Game
             GUI.Label(new Rect(20, 75, 400, 30), $"Time: {Mathf.Max(0f, LevelTimeLimit - _levelTime):0}s");
 
             if (_state == GameState.Aiming)
-                GUI.Label(new Rect(20, 105, 700, 30), "Aim with mouse. Hold left button to charge, release to fire.");
+                GUI.Label(new Rect(20, 105, 760, 30), "Aim mouse • hold to charge, release to fire • right-drag pan • scroll zoom • R restart");
+
+            // Charge meter while charging.
+            if (_state == GameState.Charging)
+            {
+                float f = ChargeModel.ChargeFraction(_holdTime, Charge);
+                float bx = Screen.width / 2f - 120f, by = Screen.height - 70f;
+                Color old = GUI.color;
+                GUI.color = new Color(0.2f, 0.2f, 0.2f, 0.8f);
+                GUI.Box(new Rect(bx, by, 240f, 26f), "");
+                GUI.color = Color.Lerp(new Color(0.4f, 0.9f, 0.4f), new Color(1f, 0.4f, 0.2f), f);
+                GUI.Box(new Rect(bx, by, 240f * f, 26f), "");
+                GUI.color = old;
+                GUI.Label(new Rect(bx, by - 26f, 240f, 24f), "Charge");
+            }
 
             if (_state == GameState.Won)
             {
