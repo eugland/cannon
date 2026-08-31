@@ -60,7 +60,29 @@ a = Σ_i  G · m_i · (p_i − p) / ( |p_i − p|² + ε² )^(3/2)     for each 
 - **Surface gravity**: once a projectile or debris lands on a planet, local radial gravity toward that planet's center holds it. Structures resting on a planet are also pulled to that planet's center, so they stand "up" relative to their own planet.
 - **Safety clamps**: maximum projectile speed, and an out-of-bounds / max-flight-time timeout that ends the shot cleanly if it escapes the system.
 
+### Integration scheme
+
+Use **semi-implicit (symplectic) Euler** at the fixed timestep: each step compute acceleration `a` at the current position, then `v += a · dt`, then `p += v · dt`. Reasons:
+
+- Symplectic Euler conserves orbital energy far better than plain (explicit) Euler, so slingshots and near-orbits stay stable instead of spiralling out — important because levels rely on predictable curves.
+- It is cheap and deterministic given the same `dt` and inputs.
+- The projectile is moved by this integrator directly (kinematic-style position updates), not by leaving it to Unity's default rigid-body gravity, so flight matches the preview exactly.
+
+The trajectory preview (Section 7) must run the **identical** scheme, `dt`, and `GravityField` code so the dotted path and the real shot cannot diverge. Full rigid-body simulation (debris, collapse) still uses Unity physics; only the in-flight projectile uses the custom integrator.
+
 2D-vs-3D note: the game is 3D, but the integrator is dimension-agnostic — the same formula runs on 3D vectors.
+
+### Scale and units
+
+Fictional game-scale units, not real astronomy. Fix a scale early so `G`, masses, field radii, and forces are all tuned against the same reference and levels stay comparable:
+
+- **World size**: a level spans roughly **20–60 Unity units** across; the projectile is about **0.3 units** so it reads clearly against planets of radius **1–4 units**.
+- **Mass** is an abstract number chosen for feel, not kilograms. Reference: a small planet ≈ **1**, a sun ≈ **8–15**, a black hole ≈ **30+** with a much smaller radius.
+- **Field radius `R_i`** defaults to about **3–5× the body radius**, larger for sun and black hole, so fields are visible zones the player can read and only overlap where a level intends a combined pull.
+- **`G`** is a single global constant tuned once so that a typical mid-charge shot noticeably curves inside a planet field but still crosses open space in a second or two; it is not derived from real physics.
+- **`ε` (softening)** is set near a small fraction of the smallest body radius so it only matters on near-center passes.
+
+These are starting values to be tuned in play-test, but the ratios (sun and black-hole mass far above planets; field radius a small multiple of body radius) should hold so shots behave predictably across levels.
 
 ## 6. Level pieces
 
@@ -81,15 +103,18 @@ All bodies feed the same integrator (Section 5). They differ only in mass, field
 ### Targets: pigs
 
 - **Pigs** are the discrete targets the player must destroy to clear a level (original art and name to be finalized; "pig" is the working term).
-- A pig has simple hit points or a "pop on sufficient impact" rule.
 - Pigs sit on planet surfaces, oriented to that planet's local gravity.
+- **Damage model**: a pig has hit points and takes damage from a collision when the impact impulse (or relative kinetic energy) exceeds a small threshold; below the threshold it is a harmless nudge. Damage scales with impact strength above the threshold, so a fast direct hit can pop a pig in one blow while a light graze does nothing.
+- A pig is destroyed when hit points reach zero, **or** immediately if it leaves the playfield or contacts a sun or black hole (knocked off the planet into a hazard counts as a kill).
+- Damage sources are unified: the projectile, dislodged structure blocks, and other debris all apply the same impulse-based rule, so chain reactions and collapses can kill pigs without special cases.
+- Threshold and hit points are per-pig level data so designers can place tougher targets.
 
 ### Structures
 
 Structures are rigid blocks that protect pigs. A structure can be placed two ways:
 
 - **Resting**: sitting on a planet surface, held down by that planet's local gravity. Standard cover.
-- **Orbiting**: placed in orbit around a body, moving on a path (or a light physics orbit), so cover and pigs can circle a planet. Reaching them requires timing the shot, not just aiming.
+- **Orbiting**: circling a body so cover and pigs move, forcing the player to time the shot, not just aim it. Use a **scripted circular orbit**, not free rigid-body simulation: each orbiting object stores a center body, radius, angular speed, and start angle, and is moved kinematically each `FixedUpdate` along that circle. This keeps orbits stable and repeatable (a full physics orbit drifts and desyncs across platforms), while the object still collides normally with the projectile and can be knocked out of orbit into free physics on impact. Orbit parameters are level data so designers place predictable threats.
 
 Structures are knocked away, collapsed onto pigs, or bypassed. Debris and dislodged pigs can fall into a sun or black hole.
 
@@ -100,9 +125,11 @@ Structures are knocked away, collapsed onto pigs, or bypassed. Debris and dislod
 
 ## 7. Trajectory preview
 
-- Simulate the same gravity integrator forward N fixed steps and draw a dotted path.
-- Deliberately **truncate**: show only until the first gravity-field entry, or roughly one to one-and-a-half planets ahead. A full curve would solve the puzzle. Preview length is the primary difficulty / assist knob and can be unlocked as an assist.
-- Preview and real launch must use identical parameters and the identical integrator so the hint matches flight.
+- Simulate the same gravity integrator forward `N` fixed steps and draw a dotted path. Start with `N` covering roughly **0.6–0.8 s** of flight (about 30–50 steps at a 60 Hz fixed step), then tune for readability.
+- Draw a **dot every few steps** (for example every 3rd sample), not every step, so the dotted line reads as spaced marks rather than a solid arc that gives away the exact path.
+- **Recompute** the preview whenever aim or charge changes (and while charging, since force changes each frame); it is a pure forward simulation with no side effects and does not touch the live projectile or scene physics.
+- Deliberately **truncate**: cap at `N`, and additionally stop early at the first gravity-field entry or first predicted collision, whichever comes first, so the player sees where the curve begins but not the full solution. Preview length (`N`) is the primary difficulty / assist knob and can be unlocked as an assist.
+- Preview and real launch must use identical parameters, `dt`, and the identical `GravityField` and integration scheme (Section 5) so the hint cannot diverge from flight.
 
 ## 8. Controls and user experience
 
@@ -113,6 +140,15 @@ Structures are knocked away, collapsed onto pigs, or bypassed. Debris and dislod
 - A **charge timer** runs while holding. If the player keeps holding until the timer maxes out, the cannon **auto-fires at maximum force**.
 - **Releasing early fires immediately with less force**, proportional to how long it was held.
 - Net effect: direction is free aim; power is a hold-duration commitment with a hard time cap. This gives a tense "how long do I dare hold" feel distinct from a pure drag-and-release slingshot.
+
+Concrete charge model (starting values, tuned in play-test):
+
+- Charge time `T_charge` from zero to max: about **1.2 s**.
+- Force maps from hold duration `t` by `force = lerp(F_min, F_max, clamp01(t / T_charge))`, with `F_min` roughly **25%** of `F_max` so even a tap launches a usable shot.
+- The curve is **linear first**; only switch to eased (for example `t/T_charge` squared) if play-test shows the low end feels dead.
+- Reaching `T_charge` auto-fires at `F_max` on the same frame; there is no "hold past max" state.
+- The charge meter fills over `T_charge` and is the single source of truth read by both the fired shot and the trajectory preview, so the previewed arc always reflects the current charge.
+- All three values (`T_charge`, `F_min`, `F_max`) live in the cannon's data (ScriptableObject or serialized fields), not hard-coded in logic, so levels can tune them.
 
 ### Mobile
 
@@ -203,6 +239,8 @@ Gameplay code must not call advertising, store, analytics, or operating-system A
 - Use collision layers to prevent irrelevant contacts.
 - Use deterministic random seeds for break effects, accepting that full rigid-body simulation may differ slightly across platforms.
 - Define tolerant win conditions. Never require one fragment to land at an exact coordinate.
+
+**Resolution / "settled" definition** (drives the `Resolving → Won/Lost` transition): after a shot ends (projectile impacts, is destroyed by a hazard, or times out), the level is considered settled when either every active rigid body's speed stays below a small threshold for a short continuous window (for example under ~0.05 units/s for ~0.5 s), or a hard resolve-timeout (for example ~6 s) elapses — whichever comes first. `LevelGoal` evaluates win/loss only at that point, never mid-collapse, so a pig briefly clipped but not destroyed is judged fairly.
 
 If cross-platform replay accuracy becomes necessary, record resolved transforms or replace selected interactions with deterministic custom logic. Do not build that system before a real requirement exists.
 
