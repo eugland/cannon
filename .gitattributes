@@ -1,0 +1,26 @@
+# Normalize line endings; keep LF in the repo for Unity text assets.
+* text=auto eol=lf
+
+# Unity YAML / project text assets
+*.cs        text eol=lf diff=csharp
+*.asmdef    text eol=lf
+*.json      text eol=lf
+*.meta      text eol=lf
+*.unity     text eol=lf
+*.asset     text eol=lf
+*.prefab    text eol=lf
+*.mat       text eol=lf
+*.controller text eol=lf
+*.shader    text eol=lf
+
+# Binary assets Unity may produce
+*.png       binary
+*.jpg       binary
+*.psd       binary
+*.fbx       binary
+*.wav       binary
+*.mp3       binary
+*.ogg       binary
+*.dll       binary
+*.a         binary
+*.so        binary
