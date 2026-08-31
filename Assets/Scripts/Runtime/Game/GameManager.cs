@@ -24,6 +24,7 @@ namespace Cannon.Game
             public float FieldRadius;
             public float[] PigAngles;   // degrees around the planet where pigs sit on the surface
             public int ShieldsPerPig;   // blocks stacked outward in front of each pig
+            public int Par;             // shots for a 3-star clear
         }
 
         // Lower forces so the lowest charge no longer escapes the planet's pull.
@@ -53,6 +54,8 @@ namespace Cannon.Game
         private float _resolveTimer;
         private float _levelTime;
         private const float LevelTimeLimit = 180f;
+        private int _currentPar = 3;
+        private int _lastStars;
 
         private LevelData[] _levels;
 
@@ -95,17 +98,17 @@ namespace Cannon.Game
                 new LevelData
                 {
                     PlanetRadius = 4f, PlanetMass = 34f, FieldRadius = 40f,
-                    PigAngles = new[] { 150f }, ShieldsPerPig = 2
+                    PigAngles = new[] { 150f }, ShieldsPerPig = 2, Par = 2
                 },
                 new LevelData
                 {
                     PlanetRadius = 4.5f, PlanetMass = 40f, FieldRadius = 46f,
-                    PigAngles = new[] { 120f, 160f }, ShieldsPerPig = 2
+                    PigAngles = new[] { 120f, 160f }, ShieldsPerPig = 2, Par = 3
                 },
                 new LevelData
                 {
                     PlanetRadius = 5f, PlanetMass = 48f, FieldRadius = 52f,
-                    PigAngles = new[] { 120f, 150f }, ShieldsPerPig = 3
+                    PigAngles = new[] { 120f, 150f }, ShieldsPerPig = 3, Par = 4
                 }
             };
         }
@@ -120,6 +123,8 @@ namespace Cannon.Game
             _levelIndex = index;
             LevelData lvl = _levels[index];
             _shotsFired = 0;
+            _currentPar = Mathf.Max(1, lvl.Par);
+            _lastStars = 0;
             float r = lvl.PlanetRadius;
 
             // Planet at center (comet-toned, solid — the shot bounces off it).
@@ -348,7 +353,15 @@ namespace Cannon.Game
                 alive++;
             }
 
-            if (alive == 0) { _state = GameState.Won; return; }
+            if (alive == 0)
+            {
+                _lastStars = ScoreModel.Stars(_shotsFired, _currentPar);
+                string key = "stars_" + _levelIndex;
+                if (_lastStars > PlayerPrefs.GetInt(key, 0))
+                    PlayerPrefs.SetInt(key, _lastStars);
+                _state = GameState.Won;
+                return;
+            }
             _state = GameState.Aiming; // unlimited ammo: keep shooting until the timer runs out
 
         }
@@ -416,7 +429,7 @@ namespace Cannon.Game
         {
             GUI.skin.label.fontSize = 22;
             GUI.skin.button.fontSize = 22;
-            GUI.Label(new Rect(20, 15, 500, 30), $"Level {_levelIndex + 1}   Shots: {_shotsFired}   (unlimited)");
+            GUI.Label(new Rect(20, 15, 620, 30), $"Level {_levelIndex + 1}   Shots: {_shotsFired}   Par: {_currentPar} (3 stars)");
 
             GUI.Label(new Rect(20, 45, 400, 30), $"Pigs left: {PigsAlive}");
             GUI.Label(new Rect(20, 75, 400, 30), $"Time: {Mathf.Max(0f, LevelTimeLimit - _levelTime):0}s");
@@ -426,7 +439,9 @@ namespace Cannon.Game
 
             if (_state == GameState.Won)
             {
-                GUI.Label(new Rect(Screen.width / 2 - 100, Screen.height / 2 - 60, 300, 40), "LEVEL CLEARED!");
+                string stars = new string('★', _lastStars) + new string('☆', 3 - _lastStars);
+                GUI.Label(new Rect(Screen.width / 2 - 100, Screen.height / 2 - 90, 320, 40), "LEVEL CLEARED!");
+                GUI.Label(new Rect(Screen.width / 2 - 100, Screen.height / 2 - 55, 320, 40), $"{stars}   ({_shotsFired} shots, par {_currentPar})");
                 bool last = _levelIndex + 1 >= _levels.Length;
                 string label = last ? "You Win! Play Again" : "Next Level";
                 if (GUI.Button(new Rect(Screen.width / 2 - 100, Screen.height / 2, 200, 50), label))

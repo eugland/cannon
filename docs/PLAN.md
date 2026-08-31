@@ -341,3 +341,26 @@ Confirmed choices:
 4. Unity as the cross-platform engine.
 
 After approval, bootstrap only Milestone 0 and prove Android and Windows builds before implementing gameplay. Then Milestone 1 proves the gravity integrator, the timed-charge cannon, and the curved preview in one gray-box level.
+
+## 18. Implementation status (living)
+
+The prototype is playable (Windows) and every level is verified winnable by an automated bot with no crashes. Built so far:
+
+- **Gravity integrator** (`GravityField`, semi-implicit Euler), shared by flight and preview.
+- **Timed-charge cannon** (`ChargeModel`): aim + hold-to-charge, release early = less force, auto-fire at cap.
+- **Radial planet gravity** (`SurfaceGravity`): pigs and shield structures rest on the planet surface — no flat ground.
+- **Projectile** (`OrbitalProjectile`): integrator-driven flight, max-speed + lifetime clamps, **bounces off the planet surface**; lost in a sun / black hole.
+- **Explosive blast** (`ProjectileCollision`): detonates on contact or near a pig; lethal within its radius (Angry-Birds-Space style); pushes structures.
+- **Unlimited cannon balls**; **lose** on a per-level time limit (180 s).
+- **3-star scoring** (`ScoreModel`): stars by shots vs par; best per level saved (PlayerPrefs).
+- **Camera**: orthographic with scroll zoom (6–34).
+- **Visuals**: soft dusk-blue space background, comet-toned planet, starfield.
+- **Aim solver** (`SolveShot`): searches angle + charge; powers the auto-play bot and the winnability test.
+
+### Verification method
+
+Headless per change: EditMode unit tests + a PlayMode **auto-win** test that plays each level to completion asserting a win and no exceptions, then a Windows build, then the built exe is launched and its log scanned. Editor-only testing is not sufficient (it missed a URP-shader-stripping crash that only appeared in the player).
+
+### Backlog (next features)
+
+Level-select menu with saved stars; sun and black-hole hazard levels; multiple planets / moons; nebula background; sound effects; aim indicator polish; mobile touch controls.
