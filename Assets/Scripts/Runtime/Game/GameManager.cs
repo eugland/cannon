@@ -52,6 +52,7 @@ namespace Cannon.Game
         private float _zoom = 16f;
         private bool _panning;
         private Vector3 _lastPan;
+        private bool _paused;
         private static readonly Vector3 CameraHome = new Vector3(0f, 2f, -30f);
 
         private readonly List<GameObject> _spawned = new List<GameObject>();
@@ -219,6 +220,7 @@ namespace Cannon.Game
         private void LoadLevel(int index)
         {
             ClearLevel();
+            SetPaused(false);
             _levelIndex = index;
             LevelData lvl = _levels[index];
             _shotsFired = 0;
@@ -404,11 +406,13 @@ namespace Cannon.Game
             }
             else _panning = false;
 
-            // Hotkeys: R restarts the level, Esc returns to the menu.
+            // Hotkeys: R restarts the level, Esc returns to the menu, P pauses.
             if (_state != GameState.Menu)
             {
-                if (Input.GetKeyDown(KeyCode.R)) { LoadLevel(_levelIndex); return; }
-                if (Input.GetKeyDown(KeyCode.Escape)) { ToMenu(); return; }
+                if (Input.GetKeyDown(KeyCode.R)) { SetPaused(false); LoadLevel(_levelIndex); return; }
+                if (Input.GetKeyDown(KeyCode.Escape)) { SetPaused(false); ToMenu(); return; }
+                if (Input.GetKeyDown(KeyCode.P)) SetPaused(!_paused);
+                if (_paused) return;
             }
 
             if (_state == GameState.Aiming || _state == GameState.Charging)
@@ -643,6 +647,9 @@ namespace Cannon.Game
             if (_state == GameState.Aiming)
                 GUI.Label(new Rect(20, 105, 760, 30), "Aim mouse • hold to charge, release to fire • right-drag pan • scroll zoom • R restart");
 
+            if (_paused)
+                GUI.Label(new Rect(Screen.width / 2f - 90f, Screen.height / 2f - 20f, 300f, 40f), "PAUSED  (P to resume)");
+
             // Charge meter while charging.
             if (_state == GameState.Charging)
             {
@@ -677,6 +684,12 @@ namespace Cannon.Game
                 if (GUI.Button(new Rect(Screen.width / 2 - 100, Screen.height / 2 + 60, 200, 45), "Level Select"))
                     ToMenu();
             }
+        }
+
+        private void SetPaused(bool paused)
+        {
+            _paused = paused;
+            Time.timeScale = paused ? 0f : 1f;
         }
 
         private void ToMenu()
