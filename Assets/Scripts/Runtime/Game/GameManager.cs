@@ -437,6 +437,9 @@ namespace Cannon.Game
             string key = "stars_" + _levelIndex;
             if (_lastStars > PlayerPrefs.GetInt(key, 0))
                 PlayerPrefs.SetInt(key, _lastStars);
+            string sk = "shots_" + _levelIndex;
+            if (_shotsFired < PlayerPrefs.GetInt(sk, 9999))
+                PlayerPrefs.SetInt(sk, _shotsFired);
             _state = GameState.Won;
             Play(_winClip);
         }
@@ -710,7 +713,9 @@ namespace Cannon.Game
             {
                 int best = PlayerPrefs.GetInt("stars_" + i, 0);
                 string stars = new string('★', best) + new string('☆', 3 - best);
-                if (GUI.Button(new Rect(cx - 160, 140 + i * 60, 320, 50), $"Level {i + 1}    {stars}"))
+                int bestShots = PlayerPrefs.GetInt("shots_" + i, 0);
+                string shotsTxt = bestShots > 0 ? $"  best {bestShots}" : "";
+                if (GUI.Button(new Rect(cx - 160, 140 + i * 60, 320, 50), $"Level {i + 1}    {stars}{shotsTxt}"))
                     LoadLevel(i);
             }
 
