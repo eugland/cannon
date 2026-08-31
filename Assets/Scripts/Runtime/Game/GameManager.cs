@@ -296,6 +296,7 @@ namespace Cannon.Game
                 pigGo.transform.position = PlanetCenter + dir * (r + 0.6f);
                 pigGo.transform.localScale = Vector3.one * 0.9f;
                 Paint(pigGo, new Color(0.55f, 0.8f, 0.5f)); // soft green
+                AddEyes(pigGo, dir);
                 MakeDynamic(pigGo, 0.6f);
                 var pig = pigGo.AddComponent<Pig>();
                 pig.HitPoints = 1f; pig.DamageThreshold = 1f;
@@ -346,6 +347,23 @@ namespace Cannon.Game
         private void Play(AudioClip clip)
         {
             if (_audio != null && clip != null) _audio.PlayOneShot(clip);
+        }
+
+        /// <summary>Give a pig two little eyes on its outward-facing side (children, so they vanish with it).</summary>
+        private void AddEyes(GameObject pig, Vector3 outward)
+        {
+            Vector3 perp = new Vector3(-outward.y, outward.x, 0f);
+            for (int s = -1; s <= 1; s += 2)
+            {
+                var eye = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                eye.name = "Eye";
+                var col = eye.GetComponent<Collider>();
+                if (col != null) Object.Destroy(col);
+                eye.transform.SetParent(pig.transform, false);
+                eye.transform.localPosition = outward * 0.42f + perp * (0.24f * s) + new Vector3(0f, 0f, -0.35f);
+                eye.transform.localScale = Vector3.one * 0.26f;
+                Paint(eye, new Color(0.1f, 0.1f, 0.12f));
+            }
         }
 
         /// <summary>Add a dynamic rigidbody held to the planet by SurfaceGravity.</summary>
