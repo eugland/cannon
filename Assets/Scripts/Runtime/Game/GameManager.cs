@@ -142,6 +142,13 @@ namespace Cannon.Game
                     PigAngles = new[] { 130f, 155f }, ShieldsPerPig = 2, Par = 4,
                     HasHazard = true, HazardKind = BodyKind.BlackHole,
                     HazardPos = new Vector3(2f, -4f, 0f), HazardMass = 42f, HazardRadius = 1f, HazardField = 34f
+                },
+                new LevelData
+                {
+                    PlanetRadius = 3.5f, PlanetMass = 30f, FieldRadius = 40f,
+                    PigAngles = new[] { 120f, 150f }, ShieldsPerPig = 2, Par = 4,
+                    HasHazard = true, HazardKind = BodyKind.Planet, // second planet to slingshot around
+                    HazardPos = new Vector3(-4f, -5f, 0f), HazardMass = 26f, HazardRadius = 2f, HazardField = 30f
                 }
             };
         }
@@ -193,9 +200,14 @@ namespace Cannon.Game
                 hazard.name = lvl.HazardKind.ToString();
                 hazard.transform.position = lvl.HazardPos;
                 hazard.transform.localScale = Vector3.one * (lvl.HazardRadius * 2f);
-                Paint(hazard, lvl.HazardKind == BodyKind.Sun
-                    ? new Color(1f, 0.7f, 0.2f)      // warm sun
-                    : new Color(0.05f, 0.02f, 0.1f)); // dark black hole
+                Color hazColor;
+                switch (lvl.HazardKind)
+                {
+                    case BodyKind.Sun: hazColor = new Color(1f, 0.7f, 0.2f); break;       // warm sun
+                    case BodyKind.BlackHole: hazColor = new Color(0.05f, 0.02f, 0.1f); break; // dark
+                    default: hazColor = new Color(0.7f, 0.55f, 0.45f); break;             // second planet
+                }
+                Paint(hazard, hazColor);
                 var hb = hazard.AddComponent<GravityBody>();
                 hb.Kind = lvl.HazardKind; hb.Mass = lvl.HazardMass;
                 hb.Radius = lvl.HazardRadius; hb.FieldRadius = lvl.HazardField; hb.Softening = 0.4f;
