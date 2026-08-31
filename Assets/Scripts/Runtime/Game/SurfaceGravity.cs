@@ -13,6 +13,7 @@ namespace Cannon.Game
     {
         public float Strength = 14f;
         public float EscapeRange = 16f; // beyond this the object has escaped and flies free
+        public Vector3 Center = Vector3.zero; // the main planet; moons must not capture surface objects
 
         private Rigidbody _rb;
 
@@ -24,21 +25,8 @@ namespace Cannon.Game
 
         private void FixedUpdate()
         {
-            var bodies = GravityRegistry.ActiveBodies;
-            if (bodies.Count == 0) return;
-
-            // Pull toward the nearest planet center.
-            Vector3 pos = transform.position;
-            float bestSqr = float.MaxValue;
-            Vector3 center = pos;
-            for (int i = 0; i < bodies.Count; i++)
-            {
-                if (bodies[i] == null) continue;
-                float d = (bodies[i].transform.position - pos).sqrMagnitude;
-                if (d < bestSqr) { bestSqr = d; center = bodies[i].transform.position; }
-            }
-
-            Vector3 dir = (center - pos);
+            // Always pull toward the main planet, never a passing moon or second body.
+            Vector3 dir = (Center - transform.position);
             float dist = dir.magnitude;
             if (dist > EscapeRange || dist < 0.0001f)
                 return; // escaped (or at center): no pull, free flight

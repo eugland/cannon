@@ -34,6 +34,11 @@ namespace Cannon.Game
             public float HazardMass;
             public float HazardRadius;
             public float HazardField;
+
+            // Optional orbiting moon (moving gravity well).
+            public bool HasMoon;
+            public float MoonOrbitRadius;
+            public float MoonSpeed;
         }
 
         // Lower forces so the lowest charge no longer escapes the planet's pull.
@@ -155,6 +160,12 @@ namespace Cannon.Game
                 {
                     PlanetRadius = 4.5f, PlanetMass = 40f, FieldRadius = 46f,
                     PigAngles = new[] { 125f, 145f }, ShieldsPerPig = 2, ExplosiveShields = true, Par = 3
+                },
+                new LevelData
+                {
+                    PlanetRadius = 4f, PlanetMass = 34f, FieldRadius = 44f,
+                    PigAngles = new[] { 120f, 150f }, ShieldsPerPig = 2, Par = 4,
+                    HasMoon = true, MoonOrbitRadius = 9f, MoonSpeed = 45f
                 }
             };
         }
@@ -218,6 +229,22 @@ namespace Cannon.Game
                 hb.Kind = lvl.HazardKind; hb.Mass = lvl.HazardMass;
                 hb.Radius = lvl.HazardRadius; hb.FieldRadius = lvl.HazardField; hb.Softening = 0.4f;
                 Track(hazard);
+            }
+
+            // Optional orbiting moon (moving gravity well).
+            if (lvl.HasMoon)
+            {
+                var moon = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                moon.name = "Moon";
+                moon.transform.localScale = Vector3.one * 1.6f;
+                Paint(moon, new Color(0.75f, 0.75f, 0.7f));
+                var mb = moon.AddComponent<GravityBody>();
+                mb.Kind = BodyKind.Planet; mb.Mass = 10f; mb.Radius = 0.8f;
+                mb.FieldRadius = 18f; mb.Softening = 0.4f;
+                var orbit = moon.AddComponent<OrbitingBody>();
+                orbit.Center = PlanetCenter; orbit.OrbitRadius = lvl.MoonOrbitRadius;
+                orbit.DegreesPerSecond = lvl.MoonSpeed;
+                Track(moon);
             }
 
             // Cannon floating in space up-left of the planet.
