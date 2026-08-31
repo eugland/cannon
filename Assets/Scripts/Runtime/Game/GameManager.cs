@@ -602,8 +602,10 @@ namespace Cannon.Game
         private void DrawMenu()
         {
             float cx = Screen.width / 2f;
-            GUI.Label(new Rect(cx - 160, 60, 360, 40), "CANNON — Orbital");
-            GUI.Label(new Rect(cx - 160, 100, 400, 30), "Select a level:");
+            int total = 0;
+            for (int i = 0; i < _levels.Length; i++) total += PlayerPrefs.GetInt("stars_" + i, 0);
+            GUI.Label(new Rect(cx - 160, 55, 360, 40), "CANNON — Orbital");
+            GUI.Label(new Rect(cx - 160, 92, 400, 30), $"Stars: {total} / {_levels.Length * 3}   —  select a level:");
 
             for (int i = 0; i < _levels.Length; i++)
             {
