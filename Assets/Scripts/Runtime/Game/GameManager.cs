@@ -65,6 +65,9 @@ namespace Cannon.Game
         private int _currentPar = 3;
         private int _lastStars;
 
+        private AudioSource _audio;
+        private AudioClip _fireClip, _hitClip, _winClip, _loseClip;
+
         private LevelData[] _levels;
 
         // ---- Public API (input, AI, and headless tests) ----
@@ -91,6 +94,12 @@ namespace Cannon.Game
             SetupCameraAndLine();
 
             var starfield = new GameObject("Starfield").AddComponent<Starfield>();
+
+            _audio = gameObject.AddComponent<AudioSource>();
+            _fireClip = SoundFx.Tone(180f, 0.18f);
+            _hitClip = SoundFx.Tone(320f, 0.15f);
+            _winClip = SoundFx.Chime();
+            _loseClip = SoundFx.Tone(110f, 0.4f);
 
             _levels = BuildLevels();
             _state = GameState.Menu; // start at the level-select menu
@@ -208,6 +217,7 @@ namespace Cannon.Game
                 MakeDynamic(pigGo, 0.6f);
                 var pig = pigGo.AddComponent<Pig>();
                 pig.HitPoints = 1f; pig.DamageThreshold = 1f;
+                pig.Died += _ => Play(_hitClip);
                 _pigs.Add(pig);
                 Track(pigGo);
 
@@ -240,6 +250,11 @@ namespace Cannon.Game
 
         private void Track(GameObject go) => _spawned.Add(go);
 
+        private void Play(AudioClip clip)
+        {
+            if (_audio != null && clip != null) _audio.PlayOneShot(clip);
+        }
+
         /// <summary>Add a dynamic rigidbody held to the planet by SurfaceGravity.</summary>
         private void MakeDynamic(GameObject go, float mass)
         {
@@ -266,6 +281,7 @@ namespace Cannon.Game
                 if (_levelTime >= LevelTimeLimit && PigsAlive > 0)
                 {
                     _state = GameState.Lost;
+                    Play(_loseClip);
                     return;
                 }
             }
@@ -379,6 +395,7 @@ namespace Cannon.Game
 
             _activeShot = proj;
             Track(shot);
+            Play(_fireClip);
         }
 
         private void OnShotEnded(OrbitalProjectile proj)
@@ -409,6 +426,7 @@ namespace Cannon.Game
                 if (_lastStars > PlayerPrefs.GetInt(key, 0))
                     PlayerPrefs.SetInt(key, _lastStars);
                 _state = GameState.Won;
+                Play(_winClip);
                 return;
             }
             _state = GameState.Aiming; // unlimited ammo: keep shooting until the timer runs out
@@ -446,6 +464,8 @@ namespace Cannon.Game
             _cam.transform.rotation = Quaternion.identity;
             _cam.clearFlags = CameraClearFlags.SolidColor;
             _cam.backgroundColor = new Color(0.16f, 0.17f, 0.28f); // soft dusk-blue space, not black
+            if (_cam.GetComponent<AudioListener>() == null)
+                _cam.gameObject.AddComponent<AudioListener>();
 
             var lineGo = new GameObject("Preview");
             _line = lineGo.AddComponent<LineRenderer>();
