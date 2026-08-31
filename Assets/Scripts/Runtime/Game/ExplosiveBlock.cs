@@ -20,6 +20,7 @@ namespace Cannon.Game
             _done = true;
 
             Vector3 p = transform.position;
+            ExplosionFx.Spawn(p, Radius);
             Collider[] hits = Physics.OverlapSphere(p, Radius);
             foreach (var col in hits)
             {

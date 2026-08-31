@@ -77,6 +77,7 @@ namespace Cannon.Game
 
         private void Burst(Vector3 point)
         {
+            ExplosionFx.Spawn(point, BurstRadius);
             float speed = _proj.Velocity.magnitude;
             Collider[] hits = Physics.OverlapSphere(point, BurstRadius);
             foreach (var col in hits)
