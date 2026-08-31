@@ -50,6 +50,9 @@ namespace Cannon.Game
         private const float ZoomMin = 6f;
         private const float ZoomMax = 34f;
         private float _zoom = 16f;
+        private bool _panning;
+        private Vector3 _lastPan;
+        private static readonly Vector3 CameraHome = new Vector3(0f, 2f, -30f);
 
         private readonly List<GameObject> _spawned = new List<GameObject>();
         private readonly List<Pig> _pigs = new List<Pig>();
@@ -325,6 +328,7 @@ namespace Cannon.Game
             _holdTime = 0f;
             _levelTime = 0f;
             _zoom = Mathf.Clamp(r * 2.6f + 8f, ZoomMin, ZoomMax);
+            if (_cam != null) _cam.transform.position = CameraHome;
         }
 
         private void ClearLevel()
@@ -363,6 +367,24 @@ namespace Cannon.Game
             if (Mathf.Abs(scroll) > 0.01f)
                 _zoom = Mathf.Clamp(_zoom - scroll * 2f, ZoomMin, ZoomMax);
             if (_cam != null) _cam.orthographicSize = _zoom;
+
+            // Right-drag to pan the camera.
+            if (_cam != null && Input.GetMouseButton(1))
+            {
+                Vector3 mp = Input.mousePosition;
+                if (_panning)
+                {
+                    float wpp = (_cam.orthographicSize * 2f) / Screen.height;
+                    Vector3 delta = mp - _lastPan;
+                    Vector3 pos = _cam.transform.position - new Vector3(delta.x * wpp, delta.y * wpp, 0f);
+                    pos.x = Mathf.Clamp(pos.x, -22f, 22f);
+                    pos.y = Mathf.Clamp(pos.y, -18f, 22f);
+                    _cam.transform.position = pos;
+                }
+                _panning = true;
+                _lastPan = mp;
+            }
+            else _panning = false;
 
             // Hotkeys: R restarts the level, Esc returns to the menu.
             if (_state != GameState.Menu)
