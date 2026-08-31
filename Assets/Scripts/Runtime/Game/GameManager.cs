@@ -553,6 +553,7 @@ namespace Cannon.Game
             _activeShot = proj;
             Track(shot);
             Play(_fireClip);
+            ExplosionFx.Spawn(_muzzle + aimDir.normalized * 0.7f, 1.0f); // muzzle flash
         }
 
         // ---- Preview -----------------------------------------------------------
