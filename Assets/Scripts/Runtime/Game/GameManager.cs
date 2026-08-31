@@ -19,19 +19,22 @@ namespace Cannon.Game
         [System.Serializable]
         public struct LevelData
         {
-            public Vector3 PlanetPos;
             public float PlanetRadius;
             public float PlanetMass;
             public float FieldRadius;
-            public Vector3[] Blocks;
-            public Vector3[] Pigs;
-            public int Ammo;
+            public float[] PigAngles;   // degrees around the planet where pigs sit on the surface
+            public int ShieldsPerPig;   // blocks stacked outward in front of each pig
         }
 
+        // Lower forces so the lowest charge no longer escapes the planet's pull.
         private static readonly ChargeSettings Charge = new ChargeSettings
         {
-            ChargeTime = 1.2f, MinForce = 6f, MaxForce = 20f
+            ChargeTime = 1.2f, MinForce = 3f, MaxForce = 8f
         };
+
+        private const float ZoomMin = 6f;
+        private const float ZoomMax = 34f;
+        private float _zoom = 16f;
 
         private readonly List<GameObject> _spawned = new List<GameObject>();
         private readonly List<Pig> _pigs = new List<Pig>();
@@ -71,7 +74,7 @@ namespace Cannon.Game
         private void Start()
         {
             Application.targetFrameRate = 60;
-            Physics.gravity = new Vector3(0f, -12f, 0f);
+            Physics.gravity = Vector3.zero; // objects are held to the planet by SurfaceGravity
 
             _cam = Camera.main;
             SetupCameraAndLine();
@@ -83,6 +86,7 @@ namespace Cannon.Game
         }
 
         // ---- Level definitions -------------------------------------------------
+        // Pigs sit on the planet surface at given angles; shields stack outward in front.
 
         private LevelData[] BuildLevels()
         {
@@ -90,41 +94,23 @@ namespace Cannon.Game
             {
                 new LevelData
                 {
-                    PlanetPos = new Vector3(0f, 1f, 0f), PlanetRadius = 2f, PlanetMass = 20f, FieldRadius = 12f,
-                    Blocks = Stack(new Vector3(9f, -4.2f, 0f), 1, 3),
-                    Pigs = new[] { new Vector3(9f, -3f, 0f) },
-                    Ammo = 4
+                    PlanetRadius = 4f, PlanetMass = 34f, FieldRadius = 40f,
+                    PigAngles = new[] { 150f }, ShieldsPerPig = 2
                 },
                 new LevelData
                 {
-                    PlanetPos = new Vector3(1f, 2f, 0f), PlanetRadius = 2.5f, PlanetMass = 40f, FieldRadius = 16f,
-                    Blocks = Concat(Stack(new Vector3(8f, -4.2f, 0f), 2, 3), Stack(new Vector3(12f, -4.2f, 0f), 1, 2)),
-                    Pigs = new[] { new Vector3(8f, -2.8f, 0f), new Vector3(12f, -3.3f, 0f) },
-                    Ammo = 5
+                    PlanetRadius = 4.5f, PlanetMass = 40f, FieldRadius = 46f,
+                    PigAngles = new[] { 120f, 160f }, ShieldsPerPig = 2
                 },
                 new LevelData
                 {
-                    PlanetPos = new Vector3(0f, 0f, 0f), PlanetRadius = 3f, PlanetMass = 70f, FieldRadius = 20f,
-                    Blocks = Concat(Stack(new Vector3(10f, -4.2f, 0f), 2, 4), Stack(new Vector3(13f, -4.2f, 0f), 2, 2)),
-                    Pigs = new[] { new Vector3(10f, -2.5f, 0f), new Vector3(13f, -3.3f, 0f), new Vector3(11.5f, -1f, 0f) },
-                    Ammo = 6
+                    PlanetRadius = 5f, PlanetMass = 48f, FieldRadius = 52f,
+                    PigAngles = new[] { 110f, 140f, 170f }, ShieldsPerPig = 2
                 }
             };
         }
 
-        private static Vector3[] Stack(Vector3 basePos, int wide, int high)
-        {
-            var list = new List<Vector3>();
-            for (int x = 0; x < wide; x++)
-                for (int y = 0; y < high; y++)
-                    list.Add(basePos + new Vector3(x * 1.05f, y * 1.05f, 0f));
-            return list.ToArray();
-        }
-
-        private static Vector3[] Concat(Vector3[] a, Vector3[] b)
-        {
-            var list = new List<Vector3>(a); list.AddRange(b); return list.ToArray();
-        }
+        private static readonly Vector3 PlanetCenter = Vector3.zero;
 
         // ---- Level lifecycle ---------------------------------------------------
 
@@ -134,67 +120,62 @@ namespace Cannon.Game
             _levelIndex = index;
             LevelData lvl = _levels[index];
             _shotsFired = 0;
+            float r = lvl.PlanetRadius;
 
-            // Ground the structures rest on.
-            var ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            ground.name = "Ground";
-            ground.transform.position = new Vector3(3f, -6.5f, 0f);
-            ground.transform.localScale = new Vector3(60f, 3f, 4f);
-            Paint(ground, new Color(0.15f, 0.15f, 0.2f));
-            Track(ground);
-
-            // Planet (gravity well that bends the shot).
+            // Planet at center (comet-toned, solid — the shot bounces off it).
             var planet = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             planet.name = "Planet";
-            planet.transform.position = lvl.PlanetPos;
-            planet.transform.localScale = Vector3.one * (lvl.PlanetRadius * 2f);
-            Paint(planet, new Color(0.25f, 0.5f, 0.95f));
+            planet.transform.position = PlanetCenter;
+            planet.transform.localScale = Vector3.one * (r * 2f);
+            Paint(planet, new Color(0.62f, 0.68f, 0.72f)); // soft icy-comet grey-teal
             var body = planet.AddComponent<GravityBody>();
             body.Kind = BodyKind.Planet; body.Mass = lvl.PlanetMass;
+            body.Radius = r;
             body.FieldRadius = lvl.FieldRadius; body.Softening = 0.5f;
             Track(planet);
 
-            // Cannon.
+            // Cannon floating in space up-left of the planet.
             var cannon = GameObject.CreatePrimitive(PrimitiveType.Cube);
             cannon.name = "Cannon";
-            cannon.transform.position = new Vector3(-13f, -4f, 0f);
-            cannon.transform.localScale = new Vector3(1.4f, 1.4f, 1.4f);
-            Paint(cannon, new Color(0.8f, 0.8f, 0.85f));
+            cannon.transform.position = new Vector3(-(r + 11f), r + 7f, 0f);
+            cannon.transform.localScale = Vector3.one * 1.4f;
+            Paint(cannon, new Color(0.85f, 0.82f, 0.7f));
             Object.Destroy(cannon.GetComponent<Collider>());
             _cannon = cannon.transform;
             _muzzle = _cannon.position;
             Track(cannon);
 
-            // Structures.
-            foreach (var p in lvl.Blocks)
-            {
-                var block = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                block.transform.position = p;
-                Paint(block, new Color(0.55f, 0.4f, 0.25f));
-                var rb = block.AddComponent<Rigidbody>();
-                rb.mass = 1f; rb.constraints = RigidbodyConstraints.FreezePositionZ | RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationY;
-                Track(block);
-            }
-
-            // Pigs.
+            // Pigs on the surface at given angles, each with shields stacked outward.
             _pigs.Clear();
-            foreach (var p in lvl.Pigs)
+            foreach (float deg in lvl.PigAngles)
             {
+                Vector3 dir = new Vector3(Mathf.Cos(deg * Mathf.Deg2Rad), Mathf.Sin(deg * Mathf.Deg2Rad), 0f);
+
                 var pigGo = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                pigGo.transform.position = p;
+                pigGo.transform.position = PlanetCenter + dir * (r + 0.6f);
                 pigGo.transform.localScale = Vector3.one * 0.9f;
-                Paint(pigGo, new Color(0.4f, 0.85f, 0.3f));
-                var rb = pigGo.AddComponent<Rigidbody>();
-                rb.mass = 0.6f; rb.constraints = RigidbodyConstraints.FreezePositionZ;
+                Paint(pigGo, new Color(0.55f, 0.8f, 0.5f)); // soft green
+                MakeDynamic(pigGo, 0.6f);
                 var pig = pigGo.AddComponent<Pig>();
-                pig.HitPoints = 3f; pig.DamageThreshold = 3f;
+                pig.HitPoints = 1f; pig.DamageThreshold = 1f;
                 _pigs.Add(pig);
                 Track(pigGo);
+
+                for (int k = 0; k < lvl.ShieldsPerPig; k++)
+                {
+                    var block = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    block.transform.position = PlanetCenter + dir * (r + 1.7f + k * 1.1f);
+                    block.transform.rotation = Quaternion.FromToRotation(Vector3.up, dir);
+                    Paint(block, new Color(0.72f, 0.6f, 0.42f)); // warm sandstone
+                    MakeDynamic(block, 1f);
+                    Track(block);
+                }
             }
 
             _state = GameState.Aiming;
             _holdTime = 0f;
             _levelTime = 0f;
+            _zoom = Mathf.Clamp(r * 2.6f + 8f, ZoomMin, ZoomMax);
         }
 
         private void ClearLevel()
@@ -209,10 +190,26 @@ namespace Cannon.Game
 
         private void Track(GameObject go) => _spawned.Add(go);
 
+        /// <summary>Add a dynamic rigidbody held to the planet by SurfaceGravity.</summary>
+        private void MakeDynamic(GameObject go, float mass)
+        {
+            var rb = go.AddComponent<Rigidbody>();
+            rb.mass = mass;
+            rb.useGravity = false;
+            rb.constraints = RigidbodyConstraints.FreezePositionZ;
+            go.AddComponent<SurfaceGravity>();
+        }
+
         // ---- Input & flow ------------------------------------------------------
 
         private void Update()
         {
+            // Scroll to zoom in/out.
+            float scroll = Input.mouseScrollDelta.y;
+            if (Mathf.Abs(scroll) > 0.01f)
+                _zoom = Mathf.Clamp(_zoom - scroll * 2f, ZoomMin, ZoomMax);
+            if (_cam != null) _cam.orthographicSize = _zoom;
+
             if (_state == GameState.Aiming || _state == GameState.Charging || _state == GameState.Fired)
             {
                 _levelTime += Time.deltaTime;
@@ -258,40 +255,46 @@ namespace Cannon.Game
             }
         }
 
-        /// <summary>Test/AI hook: fire a solved full-power shot aimed to hit a world point.</summary>
+        /// <summary>Test/AI hook: fire a solved shot (best angle + charge) aimed at a world point.</summary>
         public OrbitalProjectile FireAt(Vector3 worldTarget)
         {
-            Fire(SolveAim(worldTarget), Charge.ChargeTime);
+            SolveShot(worldTarget, out Vector3 dir, out float hold);
+            Fire(dir, hold);
             return _activeShot;
         }
 
         /// <summary>
-        /// Scan launch directions at full charge and return the one whose predicted
-        /// (gravity-aware) path passes closest to the target. Used for auto-play and tests.
+        /// Search launch direction AND charge for the shot whose predicted gravity-aware
+        /// path passes closest to the target. Used for auto-play and the auto-win test.
         /// </summary>
-        public Vector3 SolveAim(Vector3 target)
+        public void SolveShot(Vector3 target, out Vector3 bestDir, out float bestHold)
         {
             var wells = new List<GravityWell>();
             GravityRegistry.CollectWells(wells);
 
             var path = new List<Vector3>();
             float best = float.MaxValue;
-            Vector3 bestDir = (target - _muzzle).normalized;
+            bestDir = (target - _muzzle).normalized;
+            bestHold = Charge.ChargeTime;
 
-            for (int deg = -10; deg <= 85; deg += 2)
+            float[] holds = { Charge.ChargeTime * 0.4f, Charge.ChargeTime * 0.6f, Charge.ChargeTime * 0.8f, Charge.ChargeTime };
+
+            for (int deg = -30; deg <= 100; deg += 2)
             {
                 Vector3 dir = Quaternion.Euler(0f, 0f, deg) * Vector3.right;
-                Vector3 vel = ChargeModel.LaunchVelocity(dir, Charge.ChargeTime, Charge);
-                TrajectorySampler.Sample(_muzzle, vel, 1f, wells, Time.fixedDeltaTime,
-                    maxSteps: 200, stride: 1, path);
-
-                for (int i = 0; i < path.Count; i++)
+                foreach (float hold in holds)
                 {
-                    float d = (path[i] - target).sqrMagnitude;
-                    if (d < best) { best = d; bestDir = dir; }
+                    Vector3 vel = ChargeModel.LaunchVelocity(dir, hold, Charge);
+                    TrajectorySampler.Sample(_muzzle, vel, 1f, wells, Time.fixedDeltaTime,
+                        maxSteps: 260, stride: 1, path);
+
+                    for (int i = 0; i < path.Count; i++)
+                    {
+                        float d = (path[i] - target).sqrMagnitude;
+                        if (d < best) { best = d; bestDir = dir; bestHold = hold; }
+                    }
                 }
             }
-            return bestDir;
         }
 
         private void Fire(Vector3 aimDir, float hold)
@@ -313,8 +316,9 @@ namespace Cannon.Game
             rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
 
             var proj = shot.AddComponent<OrbitalProjectile>();
-            proj.G = 1f; proj.MaxSpeed = 45f; proj.MaxLifetime = 8f;
-            shot.AddComponent<ProjectileCollision>();
+            proj.G = 1f; proj.MaxSpeed = 45f; proj.MaxLifetime = 10f;
+            var hit = shot.AddComponent<ProjectileCollision>();
+            hit.BurstRadius = 3.2f;
             proj.Launch(ChargeModel.LaunchVelocity(aimDir, hold, Charge));
             proj.Ended += OnShotEnded;
 
@@ -374,11 +378,11 @@ namespace Cannon.Game
                 _cam = camGo.AddComponent<Camera>();
             }
             _cam.orthographic = true;
-            _cam.orthographicSize = 9f;
-            _cam.transform.position = new Vector3(0f, -1f, -20f);
+            _cam.orthographicSize = _zoom;
+            _cam.transform.position = new Vector3(0f, 2f, -30f);
             _cam.transform.rotation = Quaternion.identity;
             _cam.clearFlags = CameraClearFlags.SolidColor;
-            _cam.backgroundColor = new Color(0.03f, 0.03f, 0.09f);
+            _cam.backgroundColor = new Color(0.16f, 0.17f, 0.28f); // soft dusk-blue space, not black
 
             var lineGo = new GameObject("Preview");
             _line = lineGo.AddComponent<LineRenderer>();

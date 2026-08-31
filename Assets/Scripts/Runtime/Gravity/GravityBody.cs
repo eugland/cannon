@@ -22,6 +22,9 @@ namespace Cannon.Gravity
         [Tooltip("Abstract game-scale mass (planet ~1, sun ~8-15, black hole ~30+).")]
         public float Mass = 1f;
 
+        [Tooltip("Solid surface radius; the projectile bounces off this. 0 = no solid surface.")]
+        public float Radius = 0f;
+
         [Tooltip("Hard cutoff radius of the gravity field (default ~3-5x body radius).")]
         public float FieldRadius = 5f;
 

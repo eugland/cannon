@@ -8,10 +8,10 @@ namespace Cannon.Game
     /// </summary>
     public class Starfield : MonoBehaviour
     {
-        public int Count = 160;
-        public float SpreadX = 28f;
-        public float SpreadY = 15f;
-        public float Depth = 8f;
+        public int Count = 240;
+        public float SpreadX = 48f;
+        public float SpreadY = 30f;
+        public float Depth = 14f;
 
         private void Start()
         {

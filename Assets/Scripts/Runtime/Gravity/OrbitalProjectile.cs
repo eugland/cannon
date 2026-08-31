@@ -54,6 +54,26 @@ namespace Cannon.Gravity
             if (Velocity.sqrMagnitude > MaxSpeed * MaxSpeed)
                 Velocity = Velocity.normalized * MaxSpeed;
 
+            // Bounce off solid bodies (kinematic vs static gives no collision callback,
+            // so the surface is handled here against each body's Radius).
+            var bodies = GravityRegistry.ActiveBodies;
+            for (int i = 0; i < bodies.Count; i++)
+            {
+                var b = bodies[i];
+                if (b == null || b.Radius <= 0f) continue;
+
+                Vector3 d = pos - b.transform.position;
+                float surf = b.Radius + 0.25f;
+                if (d.sqrMagnitude < surf * surf)
+                {
+                    if (b.IsLethal) { transform.position = pos; End(); return; }
+                    Vector3 n = d.sqrMagnitude > 1e-6f ? d.normalized : Vector3.up;
+                    Velocity = Vector3.Reflect(Velocity, n) * 0.75f;
+                    pos = b.transform.position + n * surf;
+                    break;
+                }
+            }
+
             transform.position = pos;
 
             if (_age >= MaxLifetime)
