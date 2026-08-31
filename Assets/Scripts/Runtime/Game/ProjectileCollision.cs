@@ -97,6 +97,11 @@ namespace Cannon.Game
                 var crate = col.GetComponent<ExplosiveBlock>();
                 if (crate != null)
                     crate.Detonate();
+
+                // Plain blocks take blast damage and may break.
+                var block = col.GetComponent<DestructibleBlock>();
+                if (block != null)
+                    block.Damage(Mathf.Max(speed, 4f) * falloff * 2f);
             }
         }
     }

@@ -244,7 +244,8 @@ namespace Cannon.Game
                 MakeDynamic(pigGo, 0.6f);
                 var pig = pigGo.AddComponent<Pig>();
                 pig.HitPoints = 1f; pig.DamageThreshold = 1f;
-                pig.Died += _ => Play(_hitClip);
+                var pigObj = pigGo;
+                pig.Died += _ => { Play(_hitClip); Object.Destroy(pigObj); }; // vanish on death
                 _pigs.Add(pig);
                 Track(pigGo);
 
@@ -261,6 +262,7 @@ namespace Cannon.Game
                     else
                     {
                         Paint(block, new Color(0.72f, 0.6f, 0.42f)); // warm sandstone
+                        block.AddComponent<DestructibleBlock>();
                     }
                     MakeDynamic(block, 1f);
                     Track(block);
@@ -310,26 +312,30 @@ namespace Cannon.Game
                 _zoom = Mathf.Clamp(_zoom - scroll * 2f, ZoomMin, ZoomMax);
             if (_cam != null) _cam.orthographicSize = _zoom;
 
-            if (_state == GameState.Aiming || _state == GameState.Charging || _state == GameState.Fired)
+            if (_state == GameState.Aiming || _state == GameState.Charging)
             {
                 _levelTime += Time.deltaTime;
-                if (_levelTime >= LevelTimeLimit && PigsAlive > 0)
-                {
-                    _state = GameState.Lost;
-                    Play(_loseClip);
-                    return;
-                }
-            }
 
-            switch (_state)
-            {
-                case GameState.Aiming:
-                case GameState.Charging:
-                    HandleAimAndCharge();
-                    break;
-                case GameState.Fired:
-                    break;
+                // Pigs knocked off the world count as destroyed.
+                foreach (var pig in _pigs)
+                    if (pig != null && !pig.IsDead && pig.transform.position.y < -14f)
+                        pig.Kill();
+
+                if (PigsAlive == 0) { WinLevel(); return; }
+                if (_levelTime >= LevelTimeLimit) { _state = GameState.Lost; Play(_loseClip); return; }
+
+                HandleAimAndCharge(); // rapid fire: always ready to shoot
             }
+        }
+
+        private void WinLevel()
+        {
+            _lastStars = ScoreModel.Stars(_shotsFired, _currentPar);
+            string key = "stars_" + _levelIndex;
+            if (_lastStars > PlayerPrefs.GetInt(key, 0))
+                PlayerPrefs.SetInt(key, _lastStars);
+            _state = GameState.Won;
+            Play(_winClip);
         }
 
         private void UpdateAimIndicator(Vector3 aimDir)
@@ -419,10 +425,10 @@ namespace Cannon.Game
 
         private void Fire(Vector3 aimDir, float hold)
         {
-            // Unlimited cannon balls: no ammo gate.
+            // Unlimited cannon balls, rapid fire: stay ready to shoot again immediately.
             _shotsFired++;
             _holdTime = 0f;
-            _state = GameState.Fired;
+            _state = GameState.Aiming;
             if (_line != null) _line.positionCount = 0;
             if (_aimLine != null) _aimLine.positionCount = 0;
 
@@ -442,46 +448,12 @@ namespace Cannon.Game
             hit.BurstRadius = 3.8f;
             hit.ProximityRadius = 3.5f;
             proj.Launch(ChargeModel.LaunchVelocity(aimDir, hold, Charge));
-            proj.Ended += OnShotEnded;
+            var shotGo = shot;
+            proj.Ended += _ => Object.Destroy(shotGo, 0.15f); // clean up promptly (no frozen ball)
 
             _activeShot = proj;
             Track(shot);
             Play(_fireClip);
-        }
-
-        private void OnShotEnded(OrbitalProjectile proj)
-        {
-            _resolveTimer = 0f;
-            Invoke(nameof(ResolveTurn), 1.2f); // let debris settle briefly
-        }
-
-        private void ResolveTurn()
-        {
-            if (_activeShot != null && _activeShot.gameObject != null)
-                Object.Destroy(_activeShot.gameObject);
-            _activeShot = null;
-
-            // A pig knocked off the world counts as destroyed (plan section 6).
-            int alive = 0;
-            foreach (var pig in _pigs)
-            {
-                if (pig == null || pig.IsDead) continue;
-                if (pig.transform.position.y < -14f) { pig.Kill(); continue; }
-                alive++;
-            }
-
-            if (alive == 0)
-            {
-                _lastStars = ScoreModel.Stars(_shotsFired, _currentPar);
-                string key = "stars_" + _levelIndex;
-                if (_lastStars > PlayerPrefs.GetInt(key, 0))
-                    PlayerPrefs.SetInt(key, _lastStars);
-                _state = GameState.Won;
-                Play(_winClip);
-                return;
-            }
-            _state = GameState.Aiming; // unlimited ammo: keep shooting until the timer runs out
-
         }
 
         // ---- Preview -----------------------------------------------------------

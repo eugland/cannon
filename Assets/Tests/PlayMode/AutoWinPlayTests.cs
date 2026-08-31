@@ -29,23 +29,14 @@ namespace Cannon.Tests.PlayMode
                 yield return new WaitForFixedUpdate();
 
                 int guard = 0;
-                while (gm.State != GameState.Won && guard < 80)
+                while (gm.State != GameState.Won && guard < 50)
                 {
-                    if (gm.State == GameState.Aiming)
-                    {
-                        Pig target = FirstAlivePig(gm);
-                        if (target != null)
-                            gm.FireAt(target.transform.position);
-                    }
+                    Pig target = FirstAlivePig(gm);
+                    if (target != null)
+                        gm.FireAt(target.transform.position);
 
-                    // Wait out the shot flight + resolve delay.
-                    float t = 0f;
-                    while (gm.State == GameState.Fired && t < 12f)
-                    {
-                        t += Time.deltaTime;
-                        yield return null;
-                    }
-                    yield return new WaitForSeconds(0.15f);
+                    // Let the shot fly and resolve before the next one.
+                    yield return new WaitForSeconds(2.5f);
 
                     if (gm.State == GameState.Lost)
                         break;

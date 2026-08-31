@@ -12,6 +12,7 @@ namespace Cannon.Game
     public class SurfaceGravity : MonoBehaviour
     {
         public float Strength = 14f;
+        public float EscapeRange = 16f; // beyond this the object has escaped and flies free
 
         private Rigidbody _rb;
 
@@ -38,8 +39,10 @@ namespace Cannon.Game
             }
 
             Vector3 dir = (center - pos);
-            if (dir.sqrMagnitude > 0.0001f)
-                _rb.AddForce(dir.normalized * Strength, ForceMode.Acceleration);
+            float dist = dir.magnitude;
+            if (dist > EscapeRange || dist < 0.0001f)
+                return; // escaped (or at center): no pull, free flight
+            _rb.AddForce(dir.normalized * Strength, ForceMode.Acceleration);
         }
     }
 }
