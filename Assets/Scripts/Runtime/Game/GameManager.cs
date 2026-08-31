@@ -25,6 +25,14 @@ namespace Cannon.Game
             public float[] PigAngles;   // degrees around the planet where pigs sit on the surface
             public int ShieldsPerPig;   // blocks stacked outward in front of each pig
             public int Par;             // shots for a 3-star clear
+
+            // Optional hazard (sun / black hole) — lethal on contact.
+            public bool HasHazard;
+            public BodyKind HazardKind;
+            public Vector3 HazardPos;
+            public float HazardMass;
+            public float HazardRadius;
+            public float HazardField;
         }
 
         // Lower forces so the lowest charge no longer escapes the planet's pull.
@@ -109,11 +117,32 @@ namespace Cannon.Game
                 {
                     PlanetRadius = 5f, PlanetMass = 48f, FieldRadius = 52f,
                     PigAngles = new[] { 120f, 150f }, ShieldsPerPig = 3, Par = 4
+                },
+                new LevelData
+                {
+                    PlanetRadius = 4.5f, PlanetMass = 40f, FieldRadius = 46f,
+                    PigAngles = new[] { 120f, 150f }, ShieldsPerPig = 2, Par = 4,
+                    HasHazard = true, HazardKind = BodyKind.Sun,
+                    HazardPos = new Vector3(-4f, -3f, 0f), HazardMass = 22f, HazardRadius = 1.6f, HazardField = 28f
                 }
             };
         }
 
         private static readonly Vector3 PlanetCenter = Vector3.zero;
+
+        /// <summary>True if a point is inside a lethal body's kill radius (used by the aim solver).</summary>
+        private static bool EntersLethalBody(Vector3 p)
+        {
+            var bodies = GravityRegistry.ActiveBodies;
+            for (int i = 0; i < bodies.Count; i++)
+            {
+                var b = bodies[i];
+                if (b == null || !b.IsLethal || b.Radius <= 0f) continue;
+                float kill = b.Radius + 0.4f;
+                if ((p - b.transform.position).sqrMagnitude < kill * kill) return true;
+            }
+            return false;
+        }
 
         // ---- Level lifecycle ---------------------------------------------------
 
@@ -138,6 +167,22 @@ namespace Cannon.Game
             body.Radius = r;
             body.FieldRadius = lvl.FieldRadius; body.Softening = 0.5f;
             Track(planet);
+
+            // Optional hazard (sun / black hole) — lethal on contact.
+            if (lvl.HasHazard)
+            {
+                var hazard = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                hazard.name = lvl.HazardKind.ToString();
+                hazard.transform.position = lvl.HazardPos;
+                hazard.transform.localScale = Vector3.one * (lvl.HazardRadius * 2f);
+                Paint(hazard, lvl.HazardKind == BodyKind.Sun
+                    ? new Color(1f, 0.7f, 0.2f)      // warm sun
+                    : new Color(0.05f, 0.02f, 0.1f)); // dark black hole
+                var hb = hazard.AddComponent<GravityBody>();
+                hb.Kind = lvl.HazardKind; hb.Mass = lvl.HazardMass;
+                hb.Radius = lvl.HazardRadius; hb.FieldRadius = lvl.HazardField; hb.Softening = 0.4f;
+                Track(hazard);
+            }
 
             // Cannon floating in space up-left of the planet.
             var cannon = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -293,11 +338,15 @@ namespace Cannon.Game
                     TrajectorySampler.Sample(_muzzle, vel, 1f, wells, Time.fixedDeltaTime,
                         maxSteps: 260, stride: 1, path);
 
+                    float pathBest = float.MaxValue;
+                    bool hitsLethal = false;
                     for (int i = 0; i < path.Count; i++)
                     {
+                        if (EntersLethalBody(path[i])) { hitsLethal = true; break; }
                         float d = (path[i] - target).sqrMagnitude;
-                        if (d < best) { best = d; bestDir = dir; bestHold = hold; }
+                        if (d < pathBest) pathBest = d;
                     }
+                    if (!hitsLethal && pathBest < best) { best = pathBest; bestDir = dir; bestHold = hold; }
                 }
             }
         }
