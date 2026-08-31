@@ -7,7 +7,7 @@ using Cannon.Flow;
 
 namespace Cannon.Game
 {
-    public enum GameState { Aiming, Charging, Fired, Won, Lost }
+    public enum GameState { Menu, Aiming, Charging, Fired, Won, Lost }
 
     /// <summary>
     /// Drives the whole playable slice at runtime: builds each level in code, handles
@@ -85,7 +85,7 @@ namespace Cannon.Game
             var starfield = new GameObject("Starfield").AddComponent<Starfield>();
 
             _levels = BuildLevels();
-            LoadLevel(0);
+            _state = GameState.Menu; // start at the level-select menu
         }
 
         // ---- Level definitions -------------------------------------------------
@@ -429,6 +429,13 @@ namespace Cannon.Game
         {
             GUI.skin.label.fontSize = 22;
             GUI.skin.button.fontSize = 22;
+
+            if (_state == GameState.Menu)
+            {
+                DrawMenu();
+                return;
+            }
+
             GUI.Label(new Rect(20, 15, 620, 30), $"Level {_levelIndex + 1}   Shots: {_shotsFired}   Par: {_currentPar} (3 stars)");
 
             GUI.Label(new Rect(20, 45, 400, 30), $"Pigs left: {PigsAlive}");
@@ -443,9 +450,10 @@ namespace Cannon.Game
                 GUI.Label(new Rect(Screen.width / 2 - 100, Screen.height / 2 - 90, 320, 40), "LEVEL CLEARED!");
                 GUI.Label(new Rect(Screen.width / 2 - 100, Screen.height / 2 - 55, 320, 40), $"{stars}   ({_shotsFired} shots, par {_currentPar})");
                 bool last = _levelIndex + 1 >= _levels.Length;
-                string label = last ? "You Win! Play Again" : "Next Level";
-                if (GUI.Button(new Rect(Screen.width / 2 - 100, Screen.height / 2, 200, 50), label))
-                    LoadLevel(last ? 0 : _levelIndex + 1);
+                if (!last && GUI.Button(new Rect(Screen.width / 2 - 100, Screen.height / 2, 200, 50), "Next Level"))
+                    LoadLevel(_levelIndex + 1);
+                if (GUI.Button(new Rect(Screen.width / 2 - 100, Screen.height / 2 + 60, 200, 45), "Level Select"))
+                    ToMenu();
             }
 
             if (_state == GameState.Lost)
@@ -453,7 +461,32 @@ namespace Cannon.Game
                 GUI.Label(new Rect(Screen.width / 2 - 120, Screen.height / 2 - 60, 400, 40), "TIME'S UP — level lost");
                 if (GUI.Button(new Rect(Screen.width / 2 - 100, Screen.height / 2, 200, 50), "Retry"))
                     LoadLevel(_levelIndex);
+                if (GUI.Button(new Rect(Screen.width / 2 - 100, Screen.height / 2 + 60, 200, 45), "Level Select"))
+                    ToMenu();
             }
+        }
+
+        private void ToMenu()
+        {
+            ClearLevel();
+            _state = GameState.Menu;
+        }
+
+        private void DrawMenu()
+        {
+            float cx = Screen.width / 2f;
+            GUI.Label(new Rect(cx - 160, 60, 360, 40), "CANNON — Orbital");
+            GUI.Label(new Rect(cx - 160, 100, 400, 30), "Select a level:");
+
+            for (int i = 0; i < _levels.Length; i++)
+            {
+                int best = PlayerPrefs.GetInt("stars_" + i, 0);
+                string stars = new string('★', best) + new string('☆', 3 - best);
+                if (GUI.Button(new Rect(cx - 160, 140 + i * 60, 320, 50), $"Level {i + 1}    {stars}"))
+                    LoadLevel(i);
+            }
+
+            GUI.Label(new Rect(cx - 160, 160 + _levels.Length * 60, 420, 30), "Scroll to zoom • hold mouse to charge, release to fire");
         }
     }
 }
