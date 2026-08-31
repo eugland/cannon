@@ -166,6 +166,21 @@ namespace Cannon.Game
                     PlanetRadius = 4f, PlanetMass = 34f, FieldRadius = 44f,
                     PigAngles = new[] { 120f, 150f }, ShieldsPerPig = 2, Par = 4,
                     HasMoon = true, MoonOrbitRadius = 9f, MoonSpeed = 45f
+                },
+                new LevelData
+                {
+                    PlanetRadius = 4.5f, PlanetMass = 40f, FieldRadius = 46f,
+                    PigAngles = new[] { 120f, 150f }, ShieldsPerPig = 2, ExplosiveShields = true, Par = 4,
+                    HasHazard = true, HazardKind = BodyKind.Sun,
+                    HazardPos = new Vector3(-5f, -3f, 0f), HazardMass = 22f, HazardRadius = 1.6f, HazardField = 28f
+                },
+                new LevelData
+                {
+                    PlanetRadius = 4f, PlanetMass = 34f, FieldRadius = 44f,
+                    PigAngles = new[] { 125f, 150f }, ShieldsPerPig = 2, Par = 5,
+                    HasHazard = true, HazardKind = BodyKind.Sun,
+                    HazardPos = new Vector3(-4f, -4f, 0f), HazardMass = 20f, HazardRadius = 1.5f, HazardField = 26f,
+                    HasMoon = true, MoonOrbitRadius = 9f, MoonSpeed = 40f
                 }
             };
         }

@@ -367,4 +367,4 @@ Level-select menu with saved stars; sun and black-hole hazard levels; multiple p
 
 ### Progress log (features shipped)
 
-7 levels, all verified winnable by the auto-bot with no crashes. Added since first playable build: 3-star scoring, level-select menu, sun hazard, black-hole hazard, procedural SFX, nebula backdrop, aim-direction indicator, multi-planet slingshot level, chain-reaction explosive crates. Remaining backlog: main-menu polish, cross-level star totals, camera pan, moon body, nicer planet shading, mobile touch controls.
+10 levels, all verified winnable by the auto-bot with no crashes. Added since first playable build: 3-star scoring, level-select menu, sun hazard, black-hole hazard, procedural SFX, nebula backdrop, aim-direction indicator, multi-planet slingshot level, chain-reaction explosive crates. Remaining backlog: main-menu polish, cross-level star totals, camera pan, moon body, nicer planet shading, mobile touch controls.
