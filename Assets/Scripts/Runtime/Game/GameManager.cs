@@ -259,6 +259,18 @@ namespace Cannon.Game
                 hb.Kind = lvl.HazardKind; hb.Mass = lvl.HazardMass;
                 hb.Radius = lvl.HazardRadius; hb.FieldRadius = lvl.HazardField; hb.Softening = 0.4f;
                 Track(hazard);
+
+                if (lvl.HazardKind == BodyKind.Sun)
+                {
+                    var glow = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    glow.name = "SunGlow";
+                    var gc = glow.GetComponent<Collider>();
+                    if (gc != null) Object.Destroy(gc);
+                    glow.transform.SetParent(hazard.transform, false);
+                    glow.transform.localScale = Vector3.one * 1.7f;
+                    glow.GetComponent<Renderer>().sharedMaterial =
+                        MaterialFactory.Sprite(new Color(1f, 0.6f, 0.15f, 0.25f));
+                }
             }
 
             // Optional orbiting moon (moving gravity well).
