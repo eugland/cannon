@@ -44,12 +44,29 @@ namespace Cannon.Game
 
         private GameState _state;
         private int _levelIndex;
-        private int _ammoLeft;
+        private int _shotsFired;
         private float _holdTime;
         private OrbitalProjectile _activeShot;
         private float _resolveTimer;
+        private float _levelTime;
+        private const float LevelTimeLimit = 120f;
 
         private LevelData[] _levels;
+
+        // ---- Public API (input, AI, and headless tests) ----
+        public GameState State => _state;
+        public int LevelIndex => _levelIndex;
+        public int LevelCount => _levels?.Length ?? 0;
+        public int ShotsFired => _shotsFired;
+
+        public int PigsAlive
+        {
+            get { int n = 0; foreach (var p in _pigs) if (p != null && !p.IsDead) n++; return n; }
+        }
+
+        public IReadOnlyList<Pig> Pigs => _pigs;
+
+        public void LoadLevelPublic(int index) => LoadLevel(index);
 
         private void Start()
         {
@@ -113,7 +130,7 @@ namespace Cannon.Game
             ClearLevel();
             _levelIndex = index;
             LevelData lvl = _levels[index];
-            _ammoLeft = lvl.Ammo;
+            _shotsFired = 0;
 
             // Ground the structures rest on.
             var ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -174,6 +191,7 @@ namespace Cannon.Game
 
             _state = GameState.Aiming;
             _holdTime = 0f;
+            _levelTime = 0f;
         }
 
         private void ClearLevel()
@@ -192,6 +210,16 @@ namespace Cannon.Game
 
         private void Update()
         {
+            if (_state == GameState.Aiming || _state == GameState.Charging || _state == GameState.Fired)
+            {
+                _levelTime += Time.deltaTime;
+                if (_levelTime >= LevelTimeLimit && PigsAlive > 0)
+                {
+                    _state = GameState.Lost;
+                    return;
+                }
+            }
+
             switch (_state)
             {
                 case GameState.Aiming:
@@ -227,13 +255,49 @@ namespace Cannon.Game
             }
         }
 
+        /// <summary>Test/AI hook: fire a solved full-power shot aimed to hit a world point.</summary>
+        public OrbitalProjectile FireAt(Vector3 worldTarget)
+        {
+            Fire(SolveAim(worldTarget), Charge.ChargeTime);
+            return _activeShot;
+        }
+
+        /// <summary>
+        /// Scan launch directions at full charge and return the one whose predicted
+        /// (gravity-aware) path passes closest to the target. Used for auto-play and tests.
+        /// </summary>
+        public Vector3 SolveAim(Vector3 target)
+        {
+            var wells = new List<GravityWell>();
+            GravityRegistry.CollectWells(wells);
+
+            var path = new List<Vector3>();
+            float best = float.MaxValue;
+            Vector3 bestDir = (target - _muzzle).normalized;
+
+            for (int deg = -10; deg <= 85; deg += 2)
+            {
+                Vector3 dir = Quaternion.Euler(0f, 0f, deg) * Vector3.right;
+                Vector3 vel = ChargeModel.LaunchVelocity(dir, Charge.ChargeTime, Charge);
+                TrajectorySampler.Sample(_muzzle, vel, 1f, wells, Time.fixedDeltaTime,
+                    maxSteps: 200, stride: 1, path);
+
+                for (int i = 0; i < path.Count; i++)
+                {
+                    float d = (path[i] - target).sqrMagnitude;
+                    if (d < best) { best = d; bestDir = dir; }
+                }
+            }
+            return bestDir;
+        }
+
         private void Fire(Vector3 aimDir, float hold)
         {
-            if (_ammoLeft <= 0) return;
-            _ammoLeft--;
+            // Unlimited cannon balls: no ammo gate.
+            _shotsFired++;
             _holdTime = 0f;
             _state = GameState.Fired;
-            _line.positionCount = 0;
+            if (_line != null) _line.positionCount = 0;
 
             var shot = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             shot.name = "Shot";
@@ -267,17 +331,18 @@ namespace Cannon.Game
                 Object.Destroy(_activeShot.gameObject);
             _activeShot = null;
 
+            // A pig knocked off the world counts as destroyed (plan section 6).
             int alive = 0;
             foreach (var pig in _pigs)
             {
-                if (pig == null) continue;
-                if (pig.transform.position.y < -12f && !pig.IsDead) pig.Kill(); // fell off world
-                if (!pig.IsDead) alive++;
+                if (pig == null || pig.IsDead) continue;
+                if (pig.transform.position.y < -14f) { pig.Kill(); continue; }
+                alive++;
             }
 
             if (alive == 0) { _state = GameState.Won; return; }
-            if (_ammoLeft <= 0) { _state = GameState.Lost; return; }
-            _state = GameState.Aiming;
+            _state = GameState.Aiming; // unlimited ammo: keep shooting until the timer runs out
+
         }
 
         // ---- Preview -----------------------------------------------------------
@@ -342,13 +407,13 @@ namespace Cannon.Game
         {
             GUI.skin.label.fontSize = 22;
             GUI.skin.button.fontSize = 22;
-            GUI.Label(new Rect(20, 15, 400, 30), $"Level {_levelIndex + 1}   Ammo: {_ammoLeft}");
+            GUI.Label(new Rect(20, 15, 500, 30), $"Level {_levelIndex + 1}   Shots: {_shotsFired}   (unlimited)");
 
-            int alive = 0; foreach (var p in _pigs) if (p != null && !p.IsDead) alive++;
-            GUI.Label(new Rect(20, 45, 400, 30), $"Pigs left: {alive}");
+            GUI.Label(new Rect(20, 45, 400, 30), $"Pigs left: {PigsAlive}");
+            GUI.Label(new Rect(20, 75, 400, 30), $"Time: {Mathf.Max(0f, LevelTimeLimit - _levelTime):0}s");
 
             if (_state == GameState.Aiming)
-                GUI.Label(new Rect(20, 75, 700, 30), "Aim with mouse. Hold left button to charge, release to fire.");
+                GUI.Label(new Rect(20, 105, 700, 30), "Aim with mouse. Hold left button to charge, release to fire.");
 
             if (_state == GameState.Won)
             {
@@ -361,7 +426,7 @@ namespace Cannon.Game
 
             if (_state == GameState.Lost)
             {
-                GUI.Label(new Rect(Screen.width / 2 - 80, Screen.height / 2 - 60, 300, 40), "OUT OF AMMO");
+                GUI.Label(new Rect(Screen.width / 2 - 120, Screen.height / 2 - 60, 400, 40), "TIME'S UP — level lost");
                 if (GUI.Button(new Rect(Screen.width / 2 - 100, Screen.height / 2, 200, 50), "Retry"))
                     LoadLevel(_levelIndex);
             }
