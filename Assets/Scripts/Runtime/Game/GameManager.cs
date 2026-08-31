@@ -260,16 +260,18 @@ namespace Cannon.Game
                 hb.Radius = lvl.HazardRadius; hb.FieldRadius = lvl.HazardField; hb.Softening = 0.4f;
                 Track(hazard);
 
-                if (lvl.HazardKind == BodyKind.Sun)
+                if (lvl.HazardKind == BodyKind.Sun || lvl.HazardKind == BodyKind.BlackHole)
                 {
                     var glow = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                    glow.name = "SunGlow";
+                    glow.name = "Glow";
                     var gc = glow.GetComponent<Collider>();
                     if (gc != null) Object.Destroy(gc);
                     glow.transform.SetParent(hazard.transform, false);
-                    glow.transform.localScale = Vector3.one * 1.7f;
-                    glow.GetComponent<Renderer>().sharedMaterial =
-                        MaterialFactory.Sprite(new Color(1f, 0.6f, 0.15f, 0.25f));
+                    bool sun = lvl.HazardKind == BodyKind.Sun;
+                    glow.transform.localScale = Vector3.one * (sun ? 1.7f : 2.4f);
+                    glow.GetComponent<Renderer>().sharedMaterial = MaterialFactory.Sprite(
+                        sun ? new Color(1f, 0.6f, 0.15f, 0.25f)      // warm sun halo
+                            : new Color(0.45f, 0.2f, 0.7f, 0.28f));  // purple accretion glow
                 }
             }
 
