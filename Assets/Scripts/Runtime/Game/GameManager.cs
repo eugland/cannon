@@ -135,6 +135,13 @@ namespace Cannon.Game
                     PigAngles = new[] { 120f, 150f }, ShieldsPerPig = 2, Par = 4,
                     HasHazard = true, HazardKind = BodyKind.Sun,
                     HazardPos = new Vector3(-4f, -3f, 0f), HazardMass = 22f, HazardRadius = 1.6f, HazardField = 28f
+                },
+                new LevelData
+                {
+                    PlanetRadius = 4f, PlanetMass = 34f, FieldRadius = 42f,
+                    PigAngles = new[] { 130f, 155f }, ShieldsPerPig = 2, Par = 4,
+                    HasHazard = true, HazardKind = BodyKind.BlackHole,
+                    HazardPos = new Vector3(2f, -4f, 0f), HazardMass = 42f, HazardRadius = 1f, HazardField = 34f
                 }
             };
         }
