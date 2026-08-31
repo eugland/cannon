@@ -368,3 +368,5 @@ Level-select menu with saved stars; sun and black-hole hazard levels; multiple p
 ### Progress log (features shipped)
 
 10 levels, all verified winnable by the auto-bot with no crashes. Added since first playable build: 3-star scoring, level-select menu, sun hazard, black-hole hazard, procedural SFX, nebula backdrop, aim-direction indicator, multi-planet slingshot level, chain-reaction explosive crates. Remaining backlog: main-menu polish, cross-level star totals, camera pan, moon body, nicer planet shading, mobile touch controls.
+
+Level content now has a data pipeline under `Assets/Resources/LevelEditor`: reusable object definitions plus per-level object records. A localhost web editor in `tools/level-editor` provides drag/drop placement, precise transform and gravity metrics, scaling, reusable definition creation, validation, and JSON persistence. `GameManager` builds runtime levels from those records instead of hard-coded level structs.

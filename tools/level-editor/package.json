@@ -1,0 +1,13 @@
+{
+  "name": "cannon-level-editor",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Local visual editor for Cannon level and object records",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

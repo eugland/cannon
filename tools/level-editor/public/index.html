@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cannon Level Editor</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Cannon Level Editor</h1>
+      <p>Drag objects into map. Select one to type exact metrics.</p>
+    </div>
+    <div class="toolbar">
+      <label>Level <select id="levelSelect"></select></label>
+      <button id="newLevel">New</button>
+      <button id="duplicateLevel">Duplicate</button>
+      <button id="deleteLevel" class="danger">Delete</button>
+      <button id="saveCatalog" class="primary">Save records</button>
+    </div>
+  </header>
+
+  <main>
+    <aside class="palette-panel">
+      <div class="panel-title">
+        <h2>Objects</h2>
+        <button id="newDefinition">+ Definition</button>
+      </div>
+      <p class="hint">Drag one onto map.</p>
+      <div id="palette"></div>
+    </aside>
+
+    <section class="stage-panel">
+      <canvas id="stage" width="1000" height="680" aria-label="Level map"></canvas>
+      <div class="legend"><span class="field-key"></span> gravity field <span>Grid: 1 world unit</span></div>
+    </section>
+
+    <aside class="inspector-panel">
+      <h2>Inspector</h2>
+      <div id="levelInspector"></div>
+      <hr>
+      <div id="objectInspector" class="empty">Select object.</div>
+    </aside>
+  </main>
+
+  <footer><span id="status">Loading…</span><span>Files: Assets/Resources/LevelEditor/*.json</span></footer>
+
+  <dialog id="definitionDialog">
+    <form id="definitionForm" method="dialog">
+      <h2>Create object definition</h2>
+      <div class="form-grid">
+        <label>ID <input name="id" required pattern="[A-Za-z0-9][A-Za-z0-9-]*"></label>
+        <label>Name <input name="name" required></label>
+        <label>Behavior
+          <select name="kind">
+            <option value="planet">Planet</option><option value="sun">Sun</option>
+            <option value="blackHole">Black hole</option><option value="moon">Moon</option>
+            <option value="cannon">Cannon</option><option value="target">Target</option>
+            <option value="block">Building block</option><option value="explosiveBlock">Explosive block</option>
+          </select>
+        </label>
+        <label>Color <input name="color" type="color" value="#9eaeb8"></label>
+        <label>Radius <input name="radius" type="number" min="0" step="0.1" value="1"></label>
+        <label>Width <input name="width" type="number" min="0" step="0.1" value="1"></label>
+        <label>Height <input name="height" type="number" min="0" step="0.1" value="1"></label>
+        <label>Gravity strength / mass <input name="mass" type="number" min="0" step="0.1" value="1"></label>
+        <label>Gravity field radius <input name="fieldRadius" type="number" min="0" step="0.1" value="5"></label>
+        <label>Gravity softening <input name="softening" type="number" min="0" step="0.1" value="0.4"></label>
+        <label>Hit points <input name="hitPoints" type="number" min="0" step="0.1" value="1"></label>
+        <label>Damage threshold <input name="damageThreshold" type="number" min="0" step="0.1" value="1"></label>
+      </div>
+      <div class="dialog-actions"><button value="cancel">Cancel</button><button id="createDefinition" value="default" class="primary">Create</button></div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>

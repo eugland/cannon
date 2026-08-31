@@ -10,37 +10,12 @@ namespace Cannon.Game
     public enum GameState { Menu, Aiming, Charging, Fired, Won, Lost }
 
     /// <summary>
-    /// Drives the whole playable slice at runtime: builds each level in code, handles
+    /// Drives the whole playable slice at runtime: builds each level from catalog records, handles
     /// aim / hold-charge / fire input, shows the gravity-aware trajectory preview,
     /// resolves shots, and advances the win/lose/next-level flow. See docs/PLAN.md.
     /// </summary>
     public class GameManager : MonoBehaviour
     {
-        [System.Serializable]
-        public struct LevelData
-        {
-            public float PlanetRadius;
-            public float PlanetMass;
-            public float FieldRadius;
-            public float[] PigAngles;   // degrees around the planet where pigs sit on the surface
-            public int ShieldsPerPig;   // blocks stacked outward in front of each pig
-            public bool ExplosiveShields; // shields are chain-reaction explosive crates
-            public int Par;             // shots for a 3-star clear
-
-            // Optional hazard (sun / black hole) — lethal on contact.
-            public bool HasHazard;
-            public BodyKind HazardKind;
-            public Vector3 HazardPos;
-            public float HazardMass;
-            public float HazardRadius;
-            public float HazardField;
-
-            // Optional orbiting moon (moving gravity well).
-            public bool HasMoon;
-            public float MoonOrbitRadius;
-            public float MoonSpeed;
-        }
-
         // Lower forces so the lowest charge no longer escapes the planet's pull.
         private static readonly ChargeSettings Charge = new ChargeSettings
         {
@@ -72,14 +47,15 @@ namespace Cannon.Game
         private OrbitalProjectile _activeShot;
         private float _resolveTimer;
         private float _levelTime;
-        private const float LevelTimeLimit = 180f;
+        private float _currentTimeLimit = 180f;
         private int _currentPar = 3;
         private int _lastStars;
 
         private AudioSource _audio;
         private AudioClip _fireClip, _hitClip, _winClip, _loseClip;
 
-        private LevelData[] _levels;
+        private LevelRecord[] _levels;
+        private ObjectDefinitionCatalog _objectDefinitions;
 
         // ---- Public API (input, AI, and headless tests) ----
         public GameState State => _state;
@@ -113,93 +89,10 @@ namespace Cannon.Game
             _winClip = SoundFx.Chime();
             _loseClip = SoundFx.Tone(110f, 0.4f);
 
-            _levels = BuildLevels();
+            _levels = LevelCatalogLoader.LoadLevels().levels;
+            _objectDefinitions = LevelCatalogLoader.LoadDefinitions();
             _state = GameState.Menu; // start at the level-select menu
         }
-
-        // ---- Level definitions -------------------------------------------------
-        // Pigs sit on the planet surface at given angles; shields stack outward in front.
-
-        private LevelData[] BuildLevels()
-        {
-            return new[]
-            {
-                new LevelData
-                {
-                    PlanetRadius = 4f, PlanetMass = 34f, FieldRadius = 40f,
-                    PigAngles = new[] { 150f }, ShieldsPerPig = 2, Par = 2
-                },
-                new LevelData
-                {
-                    PlanetRadius = 4.5f, PlanetMass = 40f, FieldRadius = 46f,
-                    PigAngles = new[] { 120f, 160f }, ShieldsPerPig = 2, Par = 3
-                },
-                new LevelData
-                {
-                    PlanetRadius = 5f, PlanetMass = 48f, FieldRadius = 52f,
-                    PigAngles = new[] { 120f, 150f }, ShieldsPerPig = 3, Par = 4
-                },
-                new LevelData
-                {
-                    PlanetRadius = 4.5f, PlanetMass = 40f, FieldRadius = 46f,
-                    PigAngles = new[] { 120f, 150f }, ShieldsPerPig = 2, Par = 4,
-                    HasHazard = true, HazardKind = BodyKind.Sun,
-                    HazardPos = new Vector3(-4f, -3f, 0f), HazardMass = 22f, HazardRadius = 1.6f, HazardField = 28f
-                },
-                new LevelData
-                {
-                    PlanetRadius = 4f, PlanetMass = 34f, FieldRadius = 42f,
-                    PigAngles = new[] { 130f, 155f }, ShieldsPerPig = 2, Par = 4,
-                    HasHazard = true, HazardKind = BodyKind.BlackHole,
-                    HazardPos = new Vector3(2f, -4f, 0f), HazardMass = 42f, HazardRadius = 1f, HazardField = 34f
-                },
-                new LevelData
-                {
-                    PlanetRadius = 3.5f, PlanetMass = 30f, FieldRadius = 40f,
-                    PigAngles = new[] { 120f, 150f }, ShieldsPerPig = 2, Par = 4,
-                    HasHazard = true, HazardKind = BodyKind.Planet, // second planet to slingshot around
-                    HazardPos = new Vector3(-4f, -5f, 0f), HazardMass = 26f, HazardRadius = 2f, HazardField = 30f
-                },
-                new LevelData
-                {
-                    PlanetRadius = 4.5f, PlanetMass = 40f, FieldRadius = 46f,
-                    PigAngles = new[] { 125f, 145f }, ShieldsPerPig = 2, ExplosiveShields = true, Par = 3
-                },
-                new LevelData
-                {
-                    PlanetRadius = 4f, PlanetMass = 34f, FieldRadius = 44f,
-                    PigAngles = new[] { 120f, 150f }, ShieldsPerPig = 2, Par = 4,
-                    HasMoon = true, MoonOrbitRadius = 9f, MoonSpeed = 45f
-                },
-                new LevelData
-                {
-                    PlanetRadius = 4.5f, PlanetMass = 40f, FieldRadius = 46f,
-                    PigAngles = new[] { 120f, 150f }, ShieldsPerPig = 2, ExplosiveShields = true, Par = 4,
-                    HasHazard = true, HazardKind = BodyKind.Sun,
-                    HazardPos = new Vector3(-5f, -3f, 0f), HazardMass = 22f, HazardRadius = 1.6f, HazardField = 28f
-                },
-                new LevelData
-                {
-                    PlanetRadius = 4f, PlanetMass = 34f, FieldRadius = 44f,
-                    PigAngles = new[] { 125f, 150f }, ShieldsPerPig = 2, Par = 5,
-                    HasHazard = true, HazardKind = BodyKind.Sun,
-                    HazardPos = new Vector3(-4f, -4f, 0f), HazardMass = 20f, HazardRadius = 1.5f, HazardField = 26f,
-                    HasMoon = true, MoonOrbitRadius = 9f, MoonSpeed = 40f
-                }
-            };
-        }
-
-        private static readonly Vector3 PlanetCenter = Vector3.zero;
-
-        private static readonly Color[] PlanetHues =
-        {
-            new Color(0.62f, 0.68f, 0.72f), // icy teal-grey
-            new Color(0.70f, 0.62f, 0.52f), // sandy tan
-            new Color(0.55f, 0.65f, 0.72f), // slate blue
-            new Color(0.68f, 0.60f, 0.68f), // dusty mauve
-            new Color(0.58f, 0.70f, 0.62f), // sage green
-            new Color(0.74f, 0.66f, 0.55f), // warm clay
-        };
 
         /// <summary>True if a point is inside a lethal body's kill radius (used by the aim solver).</summary>
         private static bool EntersLethalBody(Vector3 p)
@@ -219,134 +112,161 @@ namespace Cannon.Game
 
         private void LoadLevel(int index)
         {
+            LoadLevelFromCatalog(index);
+        }
+
+        private void LoadLevelFromCatalog(int index)
+        {
+            if (index < 0 || index >= _levels.Length)
+                throw new System.ArgumentOutOfRangeException(nameof(index));
+
             ClearLevel();
             SetPaused(false);
             _levelIndex = index;
-            LevelData lvl = _levels[index];
+            LevelRecord level = _levels[index];
             _shotsFired = 0;
-            _currentPar = Mathf.Max(1, lvl.Par);
+            _currentPar = Mathf.Max(1, level.par);
+            _currentTimeLimit = level.timeLimit > 0f ? level.timeLimit : 180f;
             _lastStars = 0;
-            float r = lvl.PlanetRadius;
-
-            // Planet at center (comet-toned, solid — the shot bounces off it).
-            var planet = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            planet.name = "Planet";
-            planet.transform.position = PlanetCenter;
-            planet.transform.localScale = Vector3.one * (r * 2f);
-            Paint(planet, PlanetHues[index % PlanetHues.Length]); // varied comfortable hue per level
-            var body = planet.AddComponent<GravityBody>();
-            body.Kind = BodyKind.Planet; body.Mass = lvl.PlanetMass;
-            body.Radius = r;
-            body.FieldRadius = lvl.FieldRadius; body.Softening = 0.5f;
-            Track(planet);
-
-            // Optional hazard (sun / black hole) — lethal on contact.
-            if (lvl.HasHazard)
-            {
-                var hazard = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                hazard.name = lvl.HazardKind.ToString();
-                hazard.transform.position = lvl.HazardPos;
-                hazard.transform.localScale = Vector3.one * (lvl.HazardRadius * 2f);
-                Color hazColor;
-                switch (lvl.HazardKind)
-                {
-                    case BodyKind.Sun: hazColor = new Color(1f, 0.7f, 0.2f); break;       // warm sun
-                    case BodyKind.BlackHole: hazColor = new Color(0.05f, 0.02f, 0.1f); break; // dark
-                    default: hazColor = new Color(0.7f, 0.55f, 0.45f); break;             // second planet
-                }
-                Paint(hazard, hazColor);
-                var hb = hazard.AddComponent<GravityBody>();
-                hb.Kind = lvl.HazardKind; hb.Mass = lvl.HazardMass;
-                hb.Radius = lvl.HazardRadius; hb.FieldRadius = lvl.HazardField; hb.Softening = 0.4f;
-                Track(hazard);
-
-                if (lvl.HazardKind == BodyKind.Sun || lvl.HazardKind == BodyKind.BlackHole)
-                {
-                    var glow = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                    glow.name = "Glow";
-                    var gc = glow.GetComponent<Collider>();
-                    if (gc != null) Object.Destroy(gc);
-                    glow.transform.SetParent(hazard.transform, false);
-                    bool sun = lvl.HazardKind == BodyKind.Sun;
-                    glow.transform.localScale = Vector3.one * (sun ? 1.7f : 2.4f);
-                    glow.GetComponent<Renderer>().sharedMaterial = MaterialFactory.Sprite(
-                        sun ? new Color(1f, 0.6f, 0.15f, 0.25f)      // warm sun halo
-                            : new Color(0.45f, 0.2f, 0.7f, 0.28f));  // purple accretion glow
-                }
-            }
-
-            // Optional orbiting moon (moving gravity well).
-            if (lvl.HasMoon)
-            {
-                var moon = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                moon.name = "Moon";
-                moon.transform.localScale = Vector3.one * 1.6f;
-                Paint(moon, new Color(0.75f, 0.75f, 0.7f));
-                var mb = moon.AddComponent<GravityBody>();
-                mb.Kind = BodyKind.Planet; mb.Mass = 10f; mb.Radius = 0.8f;
-                mb.FieldRadius = 18f; mb.Softening = 0.4f;
-                var orbit = moon.AddComponent<OrbitingBody>();
-                orbit.Center = PlanetCenter; orbit.OrbitRadius = lvl.MoonOrbitRadius;
-                orbit.DegreesPerSecond = lvl.MoonSpeed;
-                Track(moon);
-            }
-
-            // Cannon floating in space up-left of the planet.
-            var cannon = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            cannon.name = "Cannon";
-            cannon.transform.position = new Vector3(-(r + 11f), r + 7f, 0f);
-            cannon.transform.localScale = Vector3.one * 1.4f;
-            Paint(cannon, new Color(0.85f, 0.82f, 0.7f));
-            Object.Destroy(cannon.GetComponent<Collider>());
-            _cannon = cannon.transform;
-            _muzzle = _cannon.position;
-            Track(cannon);
-
-            // Pigs on the surface at given angles, each with shields stacked outward.
             _pigs.Clear();
-            foreach (float deg in lvl.PigAngles)
+
+            float largestBodyRadius = 1f;
+            foreach (LevelObjectRecord instance in level.objects)
             {
-                Vector3 dir = new Vector3(Mathf.Cos(deg * Mathf.Deg2Rad), Mathf.Sin(deg * Mathf.Deg2Rad), 0f);
-
-                var pigGo = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                pigGo.transform.position = PlanetCenter + dir * (r + 0.6f);
-                pigGo.transform.localScale = Vector3.one * 0.9f;
-                Paint(pigGo, new Color(0.55f, 0.8f, 0.5f)); // soft green
-                AddEyes(pigGo, dir);
-                MakeDynamic(pigGo, 0.6f);
-                var pig = pigGo.AddComponent<Pig>();
-                pig.HitPoints = 1f; pig.DamageThreshold = 1f;
-                var pigObj = pigGo;
-                pig.Died += _ => { Play(_hitClip); Object.Destroy(pigObj); }; // vanish on death
-                _pigs.Add(pig);
-                Track(pigGo);
-
-                for (int k = 0; k < lvl.ShieldsPerPig; k++)
+                ResolvedLevelObject item = LevelCatalogLoader.Resolve(instance, _objectDefinitions);
+                if (IsGravityKind(item.Kind))
                 {
-                    var block = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                    block.transform.position = PlanetCenter + dir * (r + 1.7f + k * 1.1f);
-                    block.transform.rotation = Quaternion.FromToRotation(Vector3.up, dir);
-                    if (lvl.ExplosiveShields)
-                    {
-                        Paint(block, new Color(0.9f, 0.4f, 0.15f)); // explosive orange
-                        block.AddComponent<ExplosiveBlock>();
-                    }
-                    else
-                    {
-                        Paint(block, new Color(0.72f, 0.6f, 0.42f)); // warm sandstone
-                        block.AddComponent<DestructibleBlock>();
-                    }
-                    MakeDynamic(block, 1f);
-                    Track(block);
+                    SpawnGravityObject(item);
+                    largestBodyRadius = Mathf.Max(largestBodyRadius, item.Radius);
                 }
+                else if (item.Kind == "cannon")
+                    SpawnCannon(item);
             }
+
+            foreach (LevelObjectRecord instance in level.objects)
+            {
+                ResolvedLevelObject item = LevelCatalogLoader.Resolve(instance, _objectDefinitions);
+                if (item.Kind == "target") SpawnTarget(item);
+                else if (item.Kind == "block" || item.Kind == "explosiveBlock") SpawnBlock(item);
+            }
+
+            if (_cannon == null)
+                throw new System.InvalidOperationException($"Level '{level.id}' has no cannon.");
 
             _state = GameState.Aiming;
             _holdTime = 0f;
             _levelTime = 0f;
-            _zoom = Mathf.Clamp(r * 2.6f + 8f, ZoomMin, ZoomMax);
+            _zoom = Mathf.Clamp(largestBodyRadius * 2.6f + 8f, ZoomMin, ZoomMax);
             if (_cam != null) _cam.transform.position = CameraHome;
         }
+
+        private static bool IsGravityKind(string kind)
+            => kind == "planet" || kind == "sun" || kind == "blackHole" || kind == "moon";
+
+        private void SpawnGravityObject(ResolvedLevelObject item)
+        {
+            LevelObjectRecord source = item.Instance;
+            var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            go.name = item.Definition.name;
+            go.transform.position = Position(source);
+            go.transform.localScale = Vector3.one * (item.Radius * 2f * item.Scale);
+            Paint(go, ParseColor(item.Color, Color.gray));
+
+            var body = go.AddComponent<GravityBody>();
+            body.Kind = item.Kind == "sun" ? BodyKind.Sun
+                : item.Kind == "blackHole" ? BodyKind.BlackHole
+                : BodyKind.Planet;
+            body.Mass = item.Mass;
+            body.Radius = item.Radius * item.Scale;
+            body.FieldRadius = item.FieldRadius;
+            body.Softening = item.Softening;
+
+            if (item.Kind == "moon" && source.orbitRadius > 0f)
+            {
+                var orbit = go.AddComponent<OrbitingBody>();
+                orbit.Configure(new Vector3(source.surfaceCenterX, source.surfaceCenterY, source.z),
+                    source.orbitRadius, source.orbitSpeed, source.startAngle);
+            }
+
+            if (body.Kind == BodyKind.Sun || body.Kind == BodyKind.BlackHole)
+                AddHazardGlow(go, body.Kind == BodyKind.Sun);
+
+            Track(go);
+        }
+
+        private static void AddHazardGlow(GameObject body, bool sun)
+        {
+            var glow = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            glow.name = "Glow";
+            Collider collider = glow.GetComponent<Collider>();
+            if (collider != null) Object.Destroy(collider);
+            glow.transform.SetParent(body.transform, false);
+            glow.transform.localScale = Vector3.one * (sun ? 1.7f : 2.4f);
+            glow.GetComponent<Renderer>().sharedMaterial = MaterialFactory.Sprite(
+                sun ? new Color(1f, 0.6f, 0.15f, 0.25f)
+                    : new Color(0.45f, 0.2f, 0.7f, 0.28f));
+        }
+
+        private void SpawnCannon(ResolvedLevelObject item)
+        {
+            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            go.name = item.Definition.name;
+            go.transform.position = Position(item.Instance);
+            go.transform.rotation = Quaternion.Euler(0f, 0f, item.Instance.rotation);
+            go.transform.localScale = new Vector3(item.Width, item.Height, 1f) * item.Scale;
+            Paint(go, ParseColor(item.Color, new Color(0.85f, 0.82f, 0.7f)));
+            Object.Destroy(go.GetComponent<Collider>());
+            _cannon = go.transform;
+            _muzzle = _cannon.position;
+            Track(go);
+        }
+
+        private void SpawnTarget(ResolvedLevelObject item)
+        {
+            var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            go.name = item.Definition.name;
+            go.transform.position = Position(item.Instance);
+            go.transform.localScale = Vector3.one * (item.Radius * 2f * item.Scale);
+            Paint(go, ParseColor(item.Color, new Color(0.55f, 0.8f, 0.5f)));
+
+            Vector3 center = SurfaceCenter(item.Instance);
+            Vector3 outward = (go.transform.position - center).normalized;
+            if (outward.sqrMagnitude < 0.001f) outward = Vector3.up;
+            AddEyes(go, outward);
+            MakeDynamic(go, item.Mass, center);
+
+            var target = go.AddComponent<Pig>();
+            target.HitPoints = item.HitPoints;
+            target.DamageThreshold = item.DamageThreshold;
+            target.Died += _ => { Play(_hitClip); Object.Destroy(go); };
+            _pigs.Add(target);
+            Track(go);
+        }
+
+        private void SpawnBlock(ResolvedLevelObject item)
+        {
+            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            go.name = item.Definition.name;
+            go.transform.position = Position(item.Instance);
+            go.transform.rotation = Quaternion.Euler(0f, 0f, item.Instance.rotation);
+            go.transform.localScale = new Vector3(item.Width, item.Height, 1f) * item.Scale;
+            Paint(go, ParseColor(item.Color, new Color(0.72f, 0.6f, 0.42f)));
+
+            if (item.Kind == "explosiveBlock") go.AddComponent<ExplosiveBlock>();
+            else go.AddComponent<DestructibleBlock>();
+            MakeDynamic(go, item.Mass, SurfaceCenter(item.Instance));
+            Track(go);
+        }
+
+        private static Vector3 Position(LevelObjectRecord source) => new Vector3(source.x, source.y, source.z);
+
+        private static Vector3 SurfaceCenter(LevelObjectRecord source)
+            => new Vector3(source.surfaceCenterX, source.surfaceCenterY, source.z);
+
+        private static Color ParseColor(string html, Color fallback)
+            => !string.IsNullOrWhiteSpace(html) && ColorUtility.TryParseHtmlString(html, out Color value)
+                ? value
+                : fallback;
 
         private void ClearLevel()
         {
@@ -355,6 +275,7 @@ namespace Cannon.Game
             _spawned.Clear();
             _pigs.Clear();
             _activeShot = null;
+            _cannon = null;
             if (_line != null) _line.positionCount = 0;
         }
 
@@ -383,13 +304,13 @@ namespace Cannon.Game
         }
 
         /// <summary>Add a dynamic rigidbody held to the planet by SurfaceGravity.</summary>
-        private void MakeDynamic(GameObject go, float mass)
+        private void MakeDynamic(GameObject go, float mass, Vector3 center)
         {
             var rb = go.AddComponent<Rigidbody>();
             rb.mass = mass;
             rb.useGravity = false;
             rb.constraints = RigidbodyConstraints.FreezePositionZ;
-            go.AddComponent<SurfaceGravity>();
+            go.AddComponent<SurfaceGravity>().Center = center;
         }
 
         // ---- Input & flow ------------------------------------------------------
@@ -439,7 +360,7 @@ namespace Cannon.Game
                         pig.Kill();
 
                 if (PigsAlive == 0) { WinLevel(); return; }
-                if (_levelTime >= LevelTimeLimit) { _state = GameState.Lost; Play(_loseClip); return; }
+                if (_levelTime >= _currentTimeLimit) { _state = GameState.Lost; Play(_loseClip); return; }
 
                 HandleAimAndCharge(); // rapid fire: always ready to shoot
             }
@@ -659,7 +580,7 @@ namespace Cannon.Game
             GUI.Label(new Rect(20, 15, 620, 30), $"Level {_levelIndex + 1}   Shots: {_shotsFired}   Par: {_currentPar} (3 stars)");
 
             GUI.Label(new Rect(20, 45, 400, 30), $"Pigs left: {PigsAlive}");
-            GUI.Label(new Rect(20, 75, 400, 30), $"Time: {Mathf.Max(0f, LevelTimeLimit - _levelTime):0}s");
+            GUI.Label(new Rect(20, 75, 400, 30), $"Time: {Mathf.Max(0f, _currentTimeLimit - _levelTime):0}s");
 
             if (_state == GameState.Aiming)
                 GUI.Label(new Rect(20, 105, 760, 30), "Aim mouse • hold to charge, release to fire • right-drag pan • scroll zoom • R restart");
@@ -729,7 +650,8 @@ namespace Cannon.Game
                 string stars = new string('★', best) + new string('☆', 3 - best);
                 int bestShots = PlayerPrefs.GetInt("shots_" + i, 0);
                 string shotsTxt = bestShots > 0 ? $"  best {bestShots}" : "";
-                if (GUI.Button(new Rect(cx - 160, 140 + i * 60, 320, 50), $"Level {i + 1}    {stars}{shotsTxt}"))
+                string levelName = string.IsNullOrWhiteSpace(_levels[i].name) ? $"Level {i + 1}" : _levels[i].name;
+                if (GUI.Button(new Rect(cx - 160, 140 + i * 60, 320, 50), $"{levelName}    {stars}{shotsTxt}"))
                     LoadLevel(i);
             }
 

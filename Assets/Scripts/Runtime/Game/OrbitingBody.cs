@@ -18,6 +18,18 @@ namespace Cannon.Game
 
         private void Awake() => _angle = StartAngle;
 
+        public void Configure(Vector3 center, float radius, float degreesPerSecond, float startAngle)
+        {
+            Center = center;
+            OrbitRadius = radius;
+            DegreesPerSecond = degreesPerSecond;
+            StartAngle = startAngle;
+            _angle = startAngle;
+
+            float a = _angle * Mathf.Deg2Rad;
+            transform.position = Center + new Vector3(Mathf.Cos(a), Mathf.Sin(a), 0f) * OrbitRadius;
+        }
+
         private void FixedUpdate()
         {
             _angle += DegreesPerSecond * Time.fixedDeltaTime;
