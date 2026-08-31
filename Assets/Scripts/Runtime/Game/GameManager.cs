@@ -24,6 +24,7 @@ namespace Cannon.Game
             public float FieldRadius;
             public float[] PigAngles;   // degrees around the planet where pigs sit on the surface
             public int ShieldsPerPig;   // blocks stacked outward in front of each pig
+            public bool ExplosiveShields; // shields are chain-reaction explosive crates
             public int Par;             // shots for a 3-star clear
 
             // Optional hazard (sun / black hole) — lethal on contact.
@@ -149,6 +150,11 @@ namespace Cannon.Game
                     PigAngles = new[] { 120f, 150f }, ShieldsPerPig = 2, Par = 4,
                     HasHazard = true, HazardKind = BodyKind.Planet, // second planet to slingshot around
                     HazardPos = new Vector3(-4f, -5f, 0f), HazardMass = 26f, HazardRadius = 2f, HazardField = 30f
+                },
+                new LevelData
+                {
+                    PlanetRadius = 4.5f, PlanetMass = 40f, FieldRadius = 46f,
+                    PigAngles = new[] { 125f, 145f }, ShieldsPerPig = 2, ExplosiveShields = true, Par = 3
                 }
             };
         }
@@ -247,7 +253,15 @@ namespace Cannon.Game
                     var block = GameObject.CreatePrimitive(PrimitiveType.Cube);
                     block.transform.position = PlanetCenter + dir * (r + 1.7f + k * 1.1f);
                     block.transform.rotation = Quaternion.FromToRotation(Vector3.up, dir);
-                    Paint(block, new Color(0.72f, 0.6f, 0.42f)); // warm sandstone
+                    if (lvl.ExplosiveShields)
+                    {
+                        Paint(block, new Color(0.9f, 0.4f, 0.15f)); // explosive orange
+                        block.AddComponent<ExplosiveBlock>();
+                    }
+                    else
+                    {
+                        Paint(block, new Color(0.72f, 0.6f, 0.42f)); // warm sandstone
+                    }
                     MakeDynamic(block, 1f);
                     Track(block);
                 }

@@ -92,6 +92,11 @@ namespace Cannon.Game
                 var pig = col.GetComponent<Pig>();
                 if (pig != null)
                     pig.Kill();
+
+                // Explosive crates detonate and chain.
+                var crate = col.GetComponent<ExplosiveBlock>();
+                if (crate != null)
+                    crate.Detonate();
             }
         }
     }
