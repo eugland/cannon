@@ -383,17 +383,18 @@ namespace Cannon.Game
             var lineGo = new GameObject("Preview");
             _line = lineGo.AddComponent<LineRenderer>();
             _line.widthMultiplier = 0.12f;
-            _line.material = new Material(Shader.Find("Sprites/Default")) { color = Color.white };
+            _line.material = MaterialFactory.Unlit(Color.white);
             _line.startColor = _line.endColor = new Color(1f, 1f, 1f, 0.5f);
             _line.positionCount = 0;
         }
 
         private static void Paint(GameObject go, Color color)
         {
-            var shader = Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null) shader = Shader.Find("Standard");
-            go.GetComponent<Renderer>().sharedMaterial = new Material(shader) { color = color };
+            go.GetComponent<Renderer>().sharedMaterial = MakeMaterial(color);
         }
+
+        /// <summary>Create a colored lit material (never throws; see MaterialFactory).</summary>
+        public static Material MakeMaterial(Color color) => MaterialFactory.Lit(color);
 
         private Vector3 MouseWorld()
         {

@@ -25,9 +25,6 @@ namespace Cannon.Game
             for (int i = transform.childCount - 1; i >= 0; i--)
                 Object.DestroyImmediate(transform.GetChild(i).gameObject);
 
-            var shader = Shader.Find("Universal Render Pipeline/Unlit");
-            if (shader == null) shader = Shader.Find("Sprites/Default");
-
             var rng = new System.Random(12345);
             for (int i = 0; i < count; i++)
             {
@@ -44,7 +41,7 @@ namespace Cannon.Game
                 star.transform.SetParent(transform, true);
 
                 float b = 0.6f + (float)rng.NextDouble() * 0.4f;
-                star.GetComponent<Renderer>().sharedMaterial = new Material(shader) { color = new Color(b, b, b) };
+                star.GetComponent<Renderer>().sharedMaterial = MaterialFactory.Unlit(new Color(b, b, b));
             }
             return transform.childCount;
         }
