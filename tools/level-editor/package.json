@@ -5,7 +5,8 @@
   "description": "Local visual editor for Cannon level and object records",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "test:browser": "node browser-smoke.js"
   },
   "engines": {
     "node": ">=20"

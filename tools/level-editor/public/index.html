@@ -17,6 +17,15 @@
       <button id="newLevel">New</button>
       <button id="duplicateLevel">Duplicate</button>
       <button id="deleteLevel" class="danger">Delete</button>
+      <label>Snap
+        <select id="snapSelect">
+          <option value="0.25">0.25</option>
+          <option value="0.5" selected>0.5</option>
+          <option value="1">1</option>
+          <option value="0">Off</option>
+        </select>
+      </label>
+      <button id="resetCatalog">Reset unsaved</button>
       <button id="saveCatalog" class="primary">Save records</button>
     </div>
   </header>
@@ -24,10 +33,10 @@
   <main>
     <aside class="palette-panel">
       <div class="panel-title">
-        <h2>Objects</h2>
-        <button id="newDefinition">+ Definition</button>
+        <h2>Reusable assets</h2>
+        <button id="newDefinition">+ Asset</button>
       </div>
-      <p class="hint">Drag one onto map.</p>
+      <p class="hint">Drag asset onto map. Building pieces snap into place.</p>
       <div id="palette"></div>
     </aside>
 
@@ -48,7 +57,7 @@
 
   <dialog id="definitionDialog">
     <form id="definitionForm" method="dialog">
-      <h2>Create object definition</h2>
+      <h2>Create reusable asset</h2>
       <div class="form-grid">
         <label>ID <input name="id" required pattern="[A-Za-z0-9][A-Za-z0-9-]*"></label>
         <label>Name <input name="name" required></label>
@@ -57,7 +66,7 @@
             <option value="planet">Planet</option><option value="sun">Sun</option>
             <option value="blackHole">Black hole</option><option value="moon">Moon</option>
             <option value="cannon">Cannon</option><option value="target">Target</option>
-            <option value="block">Building block</option><option value="explosiveBlock">Explosive block</option>
+            <option value="block">Building piece</option><option value="explosiveBlock">Explosive block</option>
           </select>
         </label>
         <label>Color <input name="color" type="color" value="#9eaeb8"></label>
@@ -74,6 +83,7 @@
     </form>
   </dialog>
 
+  <script src="editor-model.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

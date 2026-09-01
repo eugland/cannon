@@ -7,25 +7,51 @@ const palette = document.querySelector("#palette");
 const levelInspector = document.querySelector("#levelInspector");
 const objectInspector = document.querySelector("#objectInspector");
 const status = document.querySelector("#status");
+const snapSelect = document.querySelector("#snapSelect");
 const definitionDialog = document.querySelector("#definitionDialog");
 const definitionForm = document.querySelector("#definitionForm");
+const { round, snapCoordinate, snapRectangle } = window.CannonEditorModel;
 
 const PIXELS_PER_UNIT = 16;
 const gravityKinds = new Set(["planet", "sun", "blackHole", "moon"]);
 let catalog = { levels: [], definitions: [] };
+let savedCatalog = { levels: [], definitions: [] };
 let levelIndex = 0;
 let selectedId = null;
 let pointerDrag = null;
 let dirty = false;
+let viewWidth = stage.width;
+let viewHeight = stage.height;
 
 function currentLevel() { return catalog.levels[levelIndex]; }
 function definition(id) { return catalog.definitions.find(item => item.id === id); }
 function selectedObject() { return currentLevel()?.objects.find(item => item.id === selectedId); }
 function kindOf(object) { return object.kind || definition(object.definitionId)?.kind; }
 function valueOf(object, key) { return object[key] ?? definition(object.definitionId)?.[key] ?? 0; }
-function worldToScreen(x, y) { return { x: stage.width / 2 + x * PIXELS_PER_UNIT, y: stage.height / 2 - y * PIXELS_PER_UNIT }; }
-function screenToWorld(x, y) { return { x: (x - stage.width / 2) / PIXELS_PER_UNIT, y: (stage.height / 2 - y) / PIXELS_PER_UNIT }; }
-function round(value) { return Math.round(value * 10) / 10; }
+function worldToScreen(x, y) { return { x: viewWidth / 2 + x * PIXELS_PER_UNIT, y: viewHeight / 2 - y * PIXELS_PER_UNIT }; }
+function screenToWorld(x, y) { return { x: (x - viewWidth / 2) / PIXELS_PER_UNIT, y: (viewHeight / 2 - y) / PIXELS_PER_UNIT }; }
+function snappedPosition(object, x, y) {
+  const step = Number(snapSelect.value);
+  const rectangular = ["block", "explosiveBlock", "cannon"].includes(kindOf(object));
+  const scale = valueOf(object, "scale") || 1;
+  return rectangular
+    ? snapRectangle(x, y, valueOf(object, "width"), valueOf(object, "height"), scale, step)
+    : { x: snapCoordinate(x, step), y: snapCoordinate(y, step) };
+}
+
+function syncStageSize() {
+  const bounds = stage.getBoundingClientRect();
+  viewWidth = Math.max(1, Math.round(bounds.width));
+  viewHeight = Math.max(1, Math.round(bounds.height));
+  const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+  const bufferWidth = Math.round(viewWidth * pixelRatio);
+  const bufferHeight = Math.round(viewHeight * pixelRatio);
+  if (stage.width !== bufferWidth || stage.height !== bufferHeight) {
+    stage.width = bufferWidth;
+    stage.height = bufferHeight;
+  }
+  context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+}
 
 function setStatus(message, isError = false) {
   status.textContent = message;
@@ -67,17 +93,17 @@ function renderPalette() {
 }
 
 function drawGrid() {
-  context.clearRect(0, 0, stage.width, stage.height);
+  context.clearRect(0, 0, viewWidth, viewHeight);
   context.fillStyle = "#0e1220";
-  context.fillRect(0, 0, stage.width, stage.height);
+  context.fillRect(0, 0, viewWidth, viewHeight);
   context.lineWidth = 1;
-  for (let x = stage.width / 2 % PIXELS_PER_UNIT; x < stage.width; x += PIXELS_PER_UNIT) {
-    context.strokeStyle = Math.abs(x - stage.width / 2) < 1 ? "#536080" : "#202840";
-    context.beginPath(); context.moveTo(x, 0); context.lineTo(x, stage.height); context.stroke();
+  for (let x = viewWidth / 2 % PIXELS_PER_UNIT; x < viewWidth; x += PIXELS_PER_UNIT) {
+    context.strokeStyle = Math.abs(x - viewWidth / 2) < 1 ? "#536080" : "#202840";
+    context.beginPath(); context.moveTo(x, 0); context.lineTo(x, viewHeight); context.stroke();
   }
-  for (let y = stage.height / 2 % PIXELS_PER_UNIT; y < stage.height; y += PIXELS_PER_UNIT) {
-    context.strokeStyle = Math.abs(y - stage.height / 2) < 1 ? "#536080" : "#202840";
-    context.beginPath(); context.moveTo(0, y); context.lineTo(stage.width, y); context.stroke();
+  for (let y = viewHeight / 2 % PIXELS_PER_UNIT; y < viewHeight; y += PIXELS_PER_UNIT) {
+    context.strokeStyle = Math.abs(y - viewHeight / 2) < 1 ? "#536080" : "#202840";
+    context.beginPath(); context.moveTo(0, y); context.lineTo(viewWidth, y); context.stroke();
   }
 }
 
@@ -124,6 +150,7 @@ function drawObject(object) {
 }
 
 function renderStage() {
+  syncStageSize();
   drawGrid();
   for (const object of currentLevel()?.objects || []) drawObject(object);
 }
@@ -212,6 +239,17 @@ function renderObjectInspector() {
   }
   objectInspector.append(sizeRow);
 
+  const snapButton = document.createElement("button");
+  snapButton.textContent = `Snap position to ${snapSelect.value === "0" ? "grid off" : snapSelect.value}`;
+  snapButton.disabled = snapSelect.value === "0";
+  snapButton.addEventListener("click", () => {
+    const position = snappedPosition(object, object.x || 0, object.y || 0);
+    object.x = position.x;
+    object.y = position.y;
+    markDirty(); renderObjectInspector(); renderStage();
+  });
+  objectInspector.append(snapButton);
+
   objectInspector.append(sectionLabel("Exact metrics"));
   const metrics = [
     ["Radius", "radius"], ["Width", "width"], ["Height", "height"],
@@ -251,12 +289,15 @@ function addObject(definitionId, x, y) {
   if (!source) return;
   const object = {
     id: uniqueObjectId(source.id), definitionId: source.id,
-    x: round(x), y: round(y), z: 0, rotation: 0, scale: 1,
+    x: 0, y: 0, z: 0, rotation: 0, scale: 1,
     radius: source.radius, width: source.width, height: source.height,
     mass: source.mass, fieldRadius: source.fieldRadius, softening: source.softening,
     hitPoints: source.hitPoints, damageThreshold: source.damageThreshold,
     surfaceCenterX: 0, surfaceCenterY: 0, orbitRadius: 0, orbitSpeed: 0, startAngle: 0
   };
+  const position = snappedPosition(object, x, y);
+  object.x = position.x;
+  object.y = position.y;
   currentLevel().objects.push(object);
   selectedId = object.id;
   markDirty(); renderObjectInspector(); renderStage();
@@ -264,7 +305,7 @@ function addObject(definitionId, x, y) {
 
 function canvasPoint(event) {
   const rect = stage.getBoundingClientRect();
-  return { x: (event.clientX - rect.left) * stage.width / rect.width, y: (event.clientY - rect.top) * stage.height / rect.height };
+  return { x: event.clientX - rect.left, y: event.clientY - rect.top };
 }
 
 function hitTest(point) {
@@ -303,7 +344,8 @@ stage.addEventListener("pointermove", event => {
   const object = selectedObject();
   const point = canvasPoint(event);
   const world = screenToWorld(point.x, point.y);
-  object.x = round(world.x); object.y = round(world.y);
+  const position = snappedPosition(object, world.x, world.y);
+  object.x = position.x; object.y = position.y;
   markDirty(); renderObjectInspector(); renderStage();
 });
 stage.addEventListener("pointerup", () => { pointerDrag = null; });
@@ -312,6 +354,8 @@ levelSelect.addEventListener("change", () => {
   levelIndex = Number(levelSelect.value); selectedId = null;
   renderLevelInspector(); renderObjectInspector(); renderStage();
 });
+
+snapSelect.addEventListener("change", () => renderObjectInspector());
 
 document.querySelector("#newLevel").addEventListener("click", () => {
   const name = prompt("Level name", `Level ${catalog.levels.length + 1}`);
@@ -340,12 +384,25 @@ document.querySelector("#deleteLevel").addEventListener("click", () => {
   catalog.levels.splice(levelIndex, 1); levelIndex = Math.max(0, levelIndex - 1); selectedId = null; markDirty(); renderAll();
 });
 
+document.querySelector("#resetCatalog").addEventListener("click", () => {
+  if (!dirty) return setStatus("Nothing to reset.");
+  if (!confirm("Discard all unsaved level and asset changes?")) return;
+  const levelId = currentLevel()?.id;
+  catalog = structuredClone(savedCatalog);
+  levelIndex = Math.max(0, catalog.levels.findIndex(level => level.id === levelId));
+  selectedId = null;
+  dirty = false;
+  renderAll();
+  setStatus("Unsaved changes reset.");
+});
+
 document.querySelector("#saveCatalog").addEventListener("click", async () => {
   try {
     setStatus("Saving…");
     const response = await fetch("/api/catalog", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(catalog) });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "Save failed.");
+    savedCatalog = structuredClone(catalog);
     dirty = false; setStatus(`Saved ${catalog.levels.length} level records and ${catalog.definitions.length} definitions.`);
   } catch (error) { setStatus(error.message, true); }
 });
@@ -371,9 +428,13 @@ async function load() {
     const response = await fetch("/api/catalog");
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "Load failed.");
-    catalog = result; renderAll(); setStatus(`Loaded ${catalog.levels.length} levels and ${catalog.definitions.length} definitions.`);
+    catalog = result;
+    savedCatalog = structuredClone(catalog);
+    renderAll();
+    setStatus(`Loaded ${catalog.levels.length} levels and ${catalog.definitions.length} definitions.`);
   } catch (error) { setStatus(error.message, true); }
 }
 
 window.addEventListener("beforeunload", event => { if (dirty) event.preventDefault(); });
+new ResizeObserver(() => renderStage()).observe(stage);
 load();

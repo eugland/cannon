@@ -39,8 +39,14 @@ test("shipped Unity records form a valid playable catalog", async () => {
   const catalog = await loadCatalog();
 
   assert.equal(catalog.levels.length, 10);
-  assert.ok(catalog.definitions.length >= 8);
+  assert.ok(catalog.definitions.length >= 12);
   assert.ok(catalog.levels.every(level => level.objects.length >= 3));
+  for (const id of ["stone-brick", "stone-beam", "stone-column", "stone-tower"]) {
+    const asset = catalog.definitions.find(definition => definition.id === id);
+    assert.ok(asset, `missing castle asset ${id}`);
+    assert.equal(Number.isInteger(asset.width * 2), true, `${id} width must align to 0.5 grid`);
+    assert.equal(Number.isInteger(asset.height * 2), true, `${id} height must align to 0.5 grid`);
+  }
 });
 
 test("API saves and reloads catalog records", async context => {
