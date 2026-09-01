@@ -126,6 +126,17 @@ async function main() {
     assert.match(selected.inspector, /Object instance/);
     assert.equal(selected.status, "Unsaved changes");
 
+    const assetDialog = await client.evaluate(`(() => {
+      document.querySelector('#createAssetFromObject').click();
+      const form = document.querySelector('#definitionForm');
+      return { open: document.querySelector('#definitionDialog').open,
+        id: form.elements.id.value, kind: form.elements.kind.value };
+    })()`);
+    assert.equal(assetDialog.open, true);
+    assert.match(assetDialog.id, /-asset/);
+    assert.equal(assetDialog.kind, "planet");
+    await client.evaluate("document.querySelector('#definitionForm button[value=cancel]').click()");
+
     await client.evaluate("window.confirm = () => true; document.querySelector('#resetCatalog').click()");
     assert.equal(await client.evaluate("document.querySelector('#status').textContent"), "Unsaved changes reset.");
     console.log("Browser smoke passed: stable canvas, object selection, drag, reset.");

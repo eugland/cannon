@@ -26,6 +26,7 @@ Unity loads these same files through `Resources`, including in player builds.
 - Drag placed objects to reposition them. Building edges snap to the selected 0.25, 0.5, or 1-unit grid.
 - Select an object to resize it or enter exact position, rotation, scale, gravity, collision, and orbit metrics.
 - Use `+ Asset` to create reusable planet, sun, moon, cannon, target, or structure definitions.
+- Use `Create asset from instance…` after tuning a placed object's dimensions, physics, and color to save those values as another reusable asset.
 - Use `Reset unsaved` to restore the last loaded or saved catalog without writing files.
 - Save only when every level has exactly one cannon, at least one target, and at least one gravity body.
 

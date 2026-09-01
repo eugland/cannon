@@ -20,6 +20,7 @@ let levelIndex = 0;
 let selectedId = null;
 let pointerDrag = null;
 let dirty = false;
+let assetSourceId = null;
 let viewWidth = stage.width;
 let viewHeight = stage.height;
 
@@ -250,6 +251,12 @@ function renderObjectInspector() {
   });
   objectInspector.append(snapButton);
 
+  const createAsset = document.createElement("button");
+  createAsset.id = "createAssetFromObject";
+  createAsset.textContent = "Create asset from instance…";
+  createAsset.addEventListener("click", () => openAssetDialog(object));
+  objectInspector.append(createAsset);
+
   objectInspector.append(sectionLabel("Exact metrics"));
   const metrics = [
     ["Radius", "radius"], ["Width", "width"], ["Height", "height"],
@@ -407,16 +414,48 @@ document.querySelector("#saveCatalog").addEventListener("click", async () => {
   } catch (error) { setStatus(error.message, true); }
 });
 
-document.querySelector("#newDefinition").addEventListener("click", () => definitionDialog.showModal());
+function uniqueDefinitionId(base) {
+  let candidate = base.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "custom-asset";
+  const ids = new Set(catalog.definitions.map(item => item.id));
+  const root = candidate;
+  let suffix = 2;
+  while (ids.has(candidate)) candidate = `${root}-${suffix++}`;
+  return candidate;
+}
+
+function openAssetDialog(source = null) {
+  definitionForm.reset();
+  assetSourceId = source?.id || null;
+  if (source) {
+    const sourceDefinition = definition(source.definitionId);
+    definitionForm.elements.id.value = uniqueDefinitionId(`${source.id}-asset`);
+    definitionForm.elements.name.value = `${sourceDefinition?.name || source.id} Custom`;
+    definitionForm.elements.kind.value = kindOf(source);
+    definitionForm.elements.color.value = source.color || sourceDefinition?.color || "#9eaeb8";
+    for (const key of ["radius", "width", "height", "mass", "fieldRadius", "softening", "hitPoints", "damageThreshold"])
+      definitionForm.elements[key].value = valueOf(source, key);
+  }
+  definitionDialog.showModal();
+}
+
+document.querySelector("#newDefinition").addEventListener("click", () => openAssetDialog());
 definitionForm.addEventListener("submit", event => {
   event.preventDefault();
-  if (event.submitter?.value === "cancel") { definitionDialog.close(); return; }
+  if (event.submitter?.value === "cancel") {
+    assetSourceId = null;
+    definitionDialog.close();
+    return;
+  }
   const values = Object.fromEntries(new FormData(definitionForm));
   if (catalog.definitions.some(item => item.id === values.id)) return setStatus(`Definition '${values.id}' already exists.`, true);
   for (const key of ["radius", "width", "height", "mass", "fieldRadius", "softening", "hitPoints", "damageThreshold"])
     values[key] = Number(values[key]);
   catalog.definitions.push(values);
+  const source = currentLevel()?.objects.find(item => item.id === assetSourceId);
+  if (source) source.definitionId = values.id;
+  assetSourceId = null;
   definitionDialog.close(); definitionForm.reset(); markDirty(); renderPalette();
+  renderObjectInspector(); renderStage();
 });
 
 function renderAll() {
